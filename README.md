@@ -1,1 +1,3 @@
-# overcloud_image_for_ovn
+Script to add OVN packages for an existing overcloud image.
+Please see the script for more information.
+
