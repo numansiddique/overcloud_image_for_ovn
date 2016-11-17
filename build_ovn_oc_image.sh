@@ -136,6 +136,7 @@ sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-common
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-host
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-central
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-kmod
+sudo yum install -y python-networking-ovn
 sudo yum install -y indent
 EOF
 
@@ -187,6 +188,7 @@ sudo rpm -ihv /home/openvswitch-ovn-common-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-central-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-host-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
+sudo yum install -y python-networking-ovn
 sudo yum install -y indent
 EOF
 
