@@ -57,6 +57,8 @@ OVS_REPO_NAME=${OVS_REPO_NAME:-leifmadsen-ovs-master}
 
 TMP_OC_IMAGE_MOUNT_PATH=/tmp/oc_mnt
 
+OC_KER_VERSION=""
+
 log_print_True() {
     echo $@
 }
@@ -134,7 +136,6 @@ sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-common
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-host
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-central
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-kmod
-sudo yum install -y python2-tenacity
 sudo yum install -y indent
 EOF
 
@@ -147,17 +148,36 @@ EOF
     run_command_in_oc_image "sudo rm -f /home/oc_install_packages.sh"
 }
 
+get_kernel_version_of_oc_image() {
+    log_print "Getting the kernel version of the overcloud image"
+    run_command_in_oc_image "uname -a | cut -d ' ' -f3 > /home/ker_ver.txt"
+    sleep 1
+    mount_oc_image
+    OC_KER_VERSION=`cat $TMP_OC_IMAGE_MOUNT_PATH/home/ker_ver.txt`
+    log_print "Kernel version of overcloud image is $OC_KER_VERSION"
+    rm -f $TMP_OC_IMAGE_MOUNT_PATH/home/ker_ver.txt
+    guestunmount $TMP_OC_IMAGE_MOUNT_PATH
+}
+
 generate_ovs_rpms_and_install_in_oc_image() {
+    # First get the kernel version of the overcloud image
+    get_kernel_version_of_oc_image
+    log_print "Kernel version of overcloud image is $OC_KER_VERSION"
+    if [[ "$OC_KER_VERSION" == "" ]]; then
+        log_print "Couldn't get the kernel version from overcloud image. Using the host kernel version"
+        OC_KER_VERSION=`uname -a | cut -d " " -f3`
+    fi
     rm -rf $OVN_IMAGE_PATH/ovs
     git clone https://github.com/openvswitch/ovs.git
-    yum install -y autoconf automake rpm-build libtool kernel-devel
+    yum install -y autoconf automake rpm-build libtool kernel-devel kernel-devel-$OC_KER_VERSION
     yum install -y openssl-devel desktop-file-utils
     yum install -y groff graphviz selinux-policy-devel libcap-ng-devel
     cd $OVN_IMAGE_PATH/ovs
     ./boot.sh
     ./configure --with-linux=/lib/modules/`uname -r`/build
     make rpm-fedora RPMBUILD_OPT="--without check"
-    make rpm-fedora-kmod
+    export OC_KER_VERSION=$OC_KER_VERSION
+    make rpm-fedora-kmod RPMBUILD_OPT='-D "kversion ${OC_KER_VERSION}"'
     cd $OVN_IMAGE_PATH
     cat << EOF > $OVN_IMAGE_PATH/oc_install_packages.sh
 #!/bin/bash
@@ -167,7 +187,6 @@ sudo rpm -ihv /home/openvswitch-ovn-common-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-central-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-host-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
-sudo yum install -y python2-tenacity
 sudo yum install -y indent
 EOF
 
