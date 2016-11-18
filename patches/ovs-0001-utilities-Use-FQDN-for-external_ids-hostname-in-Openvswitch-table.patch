@@ -1,0 +1,38 @@
+From patchwork Tue Nov 15 11:57:22 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [ovs-dev] utilities: Use FQDN for external_ids:hostname in
+ Openvswitch table
+From: Babu Shanmugam <bschanmu@redhat.com>
+X-Patchwork-Id: 694996
+Message-Id: <1479211042-13260-1-git-send-email-bschanmu@redhat.com>
+To: dev@openvswitch.org
+Date: Tue, 15 Nov 2016 17:27:22 +0530
+
+From: Babu Shanmugam <bschanmu@redhat.com>
+
+Openstack compute manager uses FQDN to check for the hypervisors to
+which the ports are bound.
+
+Without this fix, no instances can be launched as the hypervisor's hostname
+mismatches.
+
+Signed-off-by: Babu Shanmugam <bschanmu@redhat.com>
+---
+ utilities/ovs-ctl.in | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/utilities/ovs-ctl.in b/utilities/ovs-ctl.in
+index ce3fb58..79979c3 100755
+--- a/utilities/ovs-ctl.in
++++ b/utilities/ovs-ctl.in
+@@ -108,7 +108,7 @@ set_system_ids () {
+     esac
+     set "$@" external-ids:system-id="\"$SYSTEM_ID\""
+ 
+-    set "$@" external-ids:hostname="\"$(hostname)\""
++    set "$@" external-ids:hostname="\"$(hostname -f)\""
+ 
+     if test X"$SYSTEM_TYPE" != X; then
+         set "$@" system-type="\"$SYSTEM_TYPE\""
