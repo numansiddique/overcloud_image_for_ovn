@@ -276,7 +276,7 @@ apply_ovn_patches_in_oc_image() {
 
     guestunmount $TMP_OC_IMAGE_MOUNT_PATH
 
-    log_print "Please use the heat templates present here $RUN_DIR/tripleo-heat-templates for the deployment"
+    log_print "Please use the heat templates present here $RUN_DIR/ht_templates_for_ovn for the deployment"
 }
 
 # download_overcloud_image
