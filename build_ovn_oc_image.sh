@@ -54,6 +54,7 @@ BUILD_OVS_RPM=$(trueorfalse True BUILD_OVS_RPM)
 OVS_REPO_PATH=${OVS_REPO_PATH:-https://copr.fedorainfracloud.org/coprs/leifmadsen/ovs-master/repo/epel-7/leifmadsen-ovs-master-epel-7.repo}
 OVS_REPO_NAME=${OVS_REPO_NAME:-leifmadsen-ovs-master}
 
+RUN_DIR=$PWD
 
 TMP_OC_IMAGE_MOUNT_PATH=/tmp/oc_mnt
 
@@ -176,6 +177,12 @@ generate_ovs_rpms_and_install_in_oc_image() {
     cd $OVN_IMAGE_PATH/ovs
     ./boot.sh
     ./configure --with-linux=/lib/modules/`uname -r`/build
+    # Apply ovs patches if any
+    ovs_patches=`ls $RUN_DIR/patches/ovs-*.patch`
+    for i in $ovs_patches
+    do
+        git am $i
+    done
     make rpm-fedora RPMBUILD_OPT="--without check"
     export OC_KER_VERSION=$OC_KER_VERSION
     make rpm-fedora-kmod RPMBUILD_OPT='-D "kversion ${OC_KER_VERSION}"'
@@ -205,6 +212,73 @@ EOF
     run_command_in_oc_image "sudo rm -f /home/*.rpm"
 }
 
+apply_ovn_patches_in_oc_image() {
+    local puppet_ovn_patches=`ls $RUN_DIR/patches/puppet-ovn-*.patch`
+    if [ "$puppet_ovn_patches" != "" ]; then
+        rm -rf ovn
+        git clone https://github.com/openstack/puppet-ovn.git ovn
+        cd ovn
+        for i in $puppet_ovn_patches
+        do
+            log_print "Applying the patch $i in puppet-ovn"
+            git am $i
+        done
+        rm -rf spec
+        cd ..
+    fi
+
+    local puppet_tripleo_patches=`ls $RUN_DIR/patches/puppet-tripleo-*.patch`
+    if [ "$puppet_tripleo_patches" != "" ]; then
+        rm -rf tripleo
+        git clone https://github.com/openstack/puppet-tripleo.git tripleo
+        cd tripleo
+        for i in $puppet_tripleo_patches
+        do
+            log_print "Applying the patch $i in puppet-tripleo"
+            git am $i
+        done
+        rm -rf spec
+        cd ..
+    fi
+
+    rm -rf ht_templates_for_ovn
+    git clone https://github.com/openstack/tripleo-heat-templates.git ht_templates_for_ovn
+    local tripleo_ht=`ls $RUN_DIR/patches/tripleo-ht-*.patch`
+    if [ "$tripleo_ht" != "" ]; then
+        cd ht_templates_for_ovn
+        for i in $tripleo_ht
+        do
+            log_print "Applying the patch $i in tripleo-heat-templates"
+            git am $i
+        done
+        cd ..
+    fi
+
+    # Now mount the oc image and copy the puppet files
+    mount_oc_image
+    if [ "$puppet_ovn_patches" != "" ]; then
+        log_print "Copying the patched puppet-ovn files to the oc image"
+        rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/ovn
+        cp -rf ovn $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/
+        rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/ovn/.git
+        rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/ovn/.gitignore
+        rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/ovn/.gitreview
+    fi
+
+    if [ "$puppet_ovn_patches" != "" ]; then
+        log_print "Copying the patched puppet-tripleo files to the oc image"
+        rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo
+        cp -rf tripleo $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/
+        rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo/.git
+        rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo/.gitignore
+        rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo/.gitreview
+    fi
+
+    guestunmount $TMP_OC_IMAGE_MOUNT_PATH
+
+    log_print "Please use the heat templates present here $RUN_DIR/tripleo-heat-templates for the deployment"
+}
+
 # download_overcloud_image
 if is_oc_file_present; then
     log_print "Overcloud file is already present.. Using it"
@@ -216,11 +290,14 @@ else
 fi
 
 if [[ "$BUILD_OVS_RPM" == "True" ]]; then
-    generate_ovs_rpms_and_install_in_oc_image
     log_print "Need to generate RPMs for OVS"
+    generate_ovs_rpms_and_install_in_oc_image
 else
     log_print "Getting the ovs packages from the repo $OVS_REPO_PATH"
     install_ovn_packages_in_oc_image
 fi
+
+log_print "Checking and applying ovn specifi patches in oc image"
+apply_ovn_patches_in_oc_image
 
 log_print "OVN overcloud image is now ready. Please upload it"
