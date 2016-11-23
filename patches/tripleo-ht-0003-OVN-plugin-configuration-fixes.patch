@@ -1,4 +1,4 @@
-From b67c501336bb60e18d554007b8a4150fe1e88739 Mon Sep 17 00:00:00 2001
+From 54c94a45423a1fc6e3d4b0b40362ea8cf0439692 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 11:42:12 +0000
 Subject: [PATCH 3/3] OVN plugin configuration fixes
@@ -8,22 +8,48 @@ plugins for ovn.
 
 Change-Id: Idc9e7ef4a1b88013bca3eac3c136e4710e38a5c0
 ---
- puppet/services/neutron-compute-plugin-ovn.yaml |  1 -
+ environments/neutron-ml2-ovn.yaml               |  1 +
+ puppet/services/neutron-compute-plugin-ovn.yaml |  6 +-----
  puppet/services/neutron-plugin-ml2-ovn.yaml     | 17 +++++++++++++----
- 2 files changed, 13 insertions(+), 5 deletions(-)
+ 3 files changed, 15 insertions(+), 9 deletions(-)
 
+diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
+index 3bd5606..3a99b55 100644
+--- a/environments/neutron-ml2-ovn.yaml
++++ b/environments/neutron-ml2-ovn.yaml
+@@ -3,6 +3,7 @@
+ resource_registry:
+   OS::TripleO::Services::NeutronL3Agent: OS::Heat::None
+   OS::TripleO::Services::NeutronOvsAgent: OS::Heat::None
++  OS::TripleO::Services::NeutronMetadataAgent: OS::Heat::None
+   OS::TripleO::Services::NeutronCorePlugin: OS::TripleO::Services::NeutronCorePluginML2OVN
+   OS::TripleO::Services::ComputeNeutronCorePlugin: ../puppet/services/neutron-compute-plugin-ovn.yaml
+ # Disabling Neutron services that overlap with OVN
 diff --git a/puppet/services/neutron-compute-plugin-ovn.yaml b/puppet/services/neutron-compute-plugin-ovn.yaml
-index 95e05dd..fa0a78b 100644
+index 95e05dd..66cec95 100644
 --- a/puppet/services/neutron-compute-plugin-ovn.yaml
 +++ b/puppet/services/neutron-compute-plugin-ovn.yaml
-@@ -37,7 +37,6 @@ outputs:
+@@ -18,9 +18,6 @@ parameters:
+                  via parameter_defaults in the resource registry.  This
+                  mapping overrides those in ServiceNetMapDefaults.
+     type: json
+-  OVNDbHost:
+-    description: IP address on which the OVN DB servers are listening
+-    type: string
+   OVNSouthboundServerPort:
+     description: Port of the Southbound DB Server
+     type: number
+@@ -37,9 +34,8 @@ outputs:
      value:
        service_name: neutron_compute_plugin_ovn
        config_settings:
 -        tripleo::profile::base::neutron::agents::ovn::ovn_db_host: {get_param: OVNDbHost}
          ovn::southbound::port: {get_param: OVNSouthboundServerPort}
-         ovn::southbound::encap_type: {get_param: OVNTunnelEncapType}
+-        ovn::southbound::encap_type: {get_param: OVNTunnelEncapType}
++        ovn::controller::ovn_encap_type: {get_param: OVNTunnelEncapType}
          ovn::controller::ovn_encap_ip: {get_param: [ServiceNetMap, NeutronApiNetwork]}
+       step_config: |
+         include ::tripleo::profile::base::neutron::agents::ovn
 diff --git a/puppet/services/neutron-plugin-ml2-ovn.yaml b/puppet/services/neutron-plugin-ml2-ovn.yaml
 index 20dfda6..ef00a9c 100644
 --- a/puppet/services/neutron-plugin-ml2-ovn.yaml
