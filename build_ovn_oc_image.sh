@@ -36,7 +36,10 @@ function trueorfalse {
 
 ENABLE_LOG_PRINTS=$(trueorfalse True ENABLE_LOG_PRINTS)
 # The path from which the overcloud image will be downloaded
-OVERCLOUD_IMAGE_URL_PATH=${OVERCLOUD_IMAGE_URL_PATH:-http://buildlogs.centos.org/centos/7/cloud/x86_64/tripleo_images/master/delorean/}
+# OVERCLOUD_IMAGE_URL_PATH=${OVERCLOUD_IMAGE_URL_PATH:-http://buildlogs.centos.org/centos/7/cloud/x86_64/tripleo_images/master/delorean/}
+
+# Using the overcloud image from images.rdoproject.org instead of buildlogs.centos
+OVERCLOUD_IMAGE_URL_PATH=${OVERCLOUD_IMAGE_URL_PATH:-https://images.rdoproject.org/master/delorean/current-tripleo/stable}
 
 # Name of the overcloud image file name
 OVERCLOUD_IMAGE_FILE=${OVERCOUD_IMAGE_NAME:-overcloud-full.qcow2}
