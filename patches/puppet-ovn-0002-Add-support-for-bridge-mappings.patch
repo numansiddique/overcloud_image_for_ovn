@@ -1,4 +1,4 @@
-From 7287eb96dbe97e1d6db9937b0af5ec889aa28606 Mon Sep 17 00:00:00 2001
+From 7438bb8f58cfe41861d44917796be6692fd9daad Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 18 Nov 2016 11:56:14 +0000
 Subject: [PATCH 2/2] Add support for bridge mappings
@@ -226,5 +226,5 @@ index df0a1d7..dda4f65 100644
        )
      end
 -- 
-2.7.4
+2.9.3
 

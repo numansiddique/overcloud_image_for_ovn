@@ -1,0 +1,107 @@
+From patchwork Mon Nov 21 21:06:47 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [ovs-dev,2/2] rhel: Add EnvironmentFile for ovn services.
+From: Russell Bryant <russell@ovn.org>
+X-Patchwork-Id: 697402
+Message-Id: <20161121210647.21720-2-russell@ovn.org>
+To: dev@openvswitch.org
+Date: Mon, 21 Nov 2016 16:06:47 -0500
+
+A previous commit documented how you do this using systemd
+native interfaces for customizing services.  However, it seems
+that some people still would rather see environment variables
+specified through an old-style sysconfig file.  It seems harmless
+enough to provide, so this patch adds it.
+
+The "-" prefix to the filename means that systemd will ignore this
+setting if the file does not exist and will not report any error.
+
+Signed-off-by: Russell Bryant <russell@ovn.org>
+---
+ rhel/usr_lib_systemd_system_ovn-controller-vtep.service | 10 ++++++++--
+ rhel/usr_lib_systemd_system_ovn-controller.service      |  9 +++++++--
+ rhel/usr_lib_systemd_system_ovn-northd.service          |  9 +++++++--
+ 3 files changed, 22 insertions(+), 6 deletions(-)
+
+diff --git a/rhel/usr_lib_systemd_system_ovn-controller-vtep.service b/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
+index 88e18b6..70128a9 100644
+--- a/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
++++ b/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
+@@ -18,8 +18,13 @@
+ # you could place the following contents in
+ # /etc/systemd/system/ovn-controller-vtep.d/local.conf:
+ #
+-# [System]
+-# Environment="OVN_DB=unix:/usr/local/var/run/openvswitch/db.sock" "VTEP_DB=unix:/usr/local/var/run/openvswitch/vtep.sock"
++#   [System]
++#   Environment="OVN_DB=unix:/usr/local/var/run/openvswitch/db.sock" "VTEP_DB=unix:/usr/local/var/run/openvswitch/vtep.sock"
++#
++# Alternatively, you may specify environment variables in the file /etc/sysconfig/ovn-controller-vtep:
++#
++#   OVN_DB="unix:/usr/local/var/run/openvswitch/db.sock"
++#   VTEP_DB="unix:/usr/local/var/run/openvswitch/vtep.sock"
+ 
+ [Unit]
+ Description=OVN VTEP gateway controller daemon
+@@ -30,6 +35,7 @@ After=openvswitch.service
+ [Service]
+ Type=simple
+ Environment=OVS_RUNDIR=%t/openvswitch OVN_DB=unix:%t/openvswitch/db.sock VTEP_DB=unix:%t/openvswitch/db.sock
++EnvironmentFile=-/etc/sysconfig/ovn-controller-vtep
+ ExecStart=/usr/bin/ovn-controller-vtep -vconsole:emer -vsyslog:err -vfile:info \
+           --log-file=/var/log/openvswitch/ovn-controller-vtep.log \
+           --no-chdir --pidfile=${OVS_RUNDIR}/ovn-controller-vtep.pid \
+diff --git a/rhel/usr_lib_systemd_system_ovn-controller.service b/rhel/usr_lib_systemd_system_ovn-controller.service
+index ad1b146..d08e9e2 100644
+--- a/rhel/usr_lib_systemd_system_ovn-controller.service
++++ b/rhel/usr_lib_systemd_system_ovn-controller.service
+@@ -6,8 +6,12 @@
+ # could place the following contents in
+ # /etc/systemd/system/ovn-controller.d/local.conf:
+ #
+-# [System]
+-# Environment="OVN_CONTROLLER_OPTS=--ovn-controller-log=-vconsole:emer -vsyslog:err -vfile:info"
++#   [System]
++#   Environment="OVN_CONTROLLER_OPTS=--ovn-controller-log=-vconsole:emer -vsyslog:err -vfile:info"
++#
++# Alternatively, you may specify environment variables in the file /etc/sysconfig/ovn-controller:
++#
++#   OVN_CONTROLLER_OPTS="--ovn-controller-log=-vconsole:emer -vsyslog:err -vfile:info"
+ 
+ [Unit]
+ Description=OVN controller daemon
+@@ -18,5 +22,6 @@ After=openvswitch.service
+ [Service]
+ Type=oneshot
+ RemainAfterExit=yes
++EnvironmentFile=-/etc/sysconfig/ovn-controller
+ ExecStart=/usr/share/openvswitch/scripts/ovn-ctl start_controller $OVN_CONTROLLER_OPTS
+ ExecStop=/usr/share/openvswitch/scripts/ovn-ctl stop_controller
+diff --git a/rhel/usr_lib_systemd_system_ovn-northd.service b/rhel/usr_lib_systemd_system_ovn-northd.service
+index 6e23eaa..0eedd1a 100644
+--- a/rhel/usr_lib_systemd_system_ovn-northd.service
++++ b/rhel/usr_lib_systemd_system_ovn-northd.service
+@@ -6,8 +6,12 @@
+ # could place the following contents in
+ # /etc/systemd/system/ovn-northd.d/local.conf:
+ #
+-# [System]
+-# Environment="OVN_NORTHD_OPTS=--db-nb-sock=/usr/local/var/run/openvswitch/ovnnb_db.sock --db-sb-sock=/usr/local/var/run/openvswitch/ovnsb_db.sock"
++#   [System]
++#   Environment="OVN_NORTHD_OPTS=--db-nb-sock=/usr/local/var/run/openvswitch/ovnnb_db.sock --db-sb-sock=/usr/local/var/run/openvswitch/ovnsb_db.sock"
++#
++# Alternatively, you may specify environment variables in the file /etc/sysconfig/ovn-controller:
++#
++#   OVN_NORTHD_OPTS="--db-nb-sock=/usr/local/var/run/openvswitch/ovnnb_db.sock --db-sb-sock=/usr/local/var/run/openvswitch/ovnsb_db.sock"
+ 
+ [Unit]
+ Description=OVN northd management daemon
+@@ -19,5 +23,6 @@ After=openvswitch.service
+ Type=oneshot
+ RemainAfterExit=yes
+ Environment=OVS_RUNDIR=%t/openvswitch OVS_DBDIR=/var/lib/openvswitch
++EnvironmentFile=-/etc/sysconfig/ovn-northd
+ ExecStart=/usr/share/openvswitch/scripts/ovn-ctl start_northd $OVN_NORTHD_OPTS
+ ExecStop=/usr/share/openvswitch/scripts/ovn-ctl stop_northd

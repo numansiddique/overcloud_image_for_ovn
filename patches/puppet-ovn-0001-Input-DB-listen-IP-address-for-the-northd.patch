@@ -1,4 +1,4 @@
-From ca6db5e76d14cf8f89c20bffa880803f417efff5 Mon Sep 17 00:00:00 2001
+From 7bf57a0f594f9b820a8e84ccfa3f5dc8f135bb52 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 12:05:49 +0000
 Subject: [PATCH 1/2] Input DB listen IP address for the northd
@@ -12,15 +12,15 @@ options for the northd service.
 
 Change-Id: I99b1c3e0fe89b763be81db9b8c1c3b257be42e6e
 ---
- manifests/northd.pp             | 27 +++++++++++++++++++++++++--
- spec/classes/ovn_northd_spec.rb | 21 +++++++++++++++++++++
- 2 files changed, 46 insertions(+), 2 deletions(-)
+ manifests/northd.pp             | 18 ++++++++++++++++--
+ spec/classes/ovn_northd_spec.rb | 14 ++++++++++++++
+ 2 files changed, 30 insertions(+), 2 deletions(-)
 
 diff --git a/manifests/northd.pp b/manifests/northd.pp
-index 55dd6e4..8ce05b2 100644
+index 55dd6e4..44d0c2b 100644
 --- a/manifests/northd.pp
 +++ b/manifests/northd.pp
-@@ -1,10 +1,33 @@
+@@ -1,10 +1,24 @@
  # ovn northd
  # == Class: ovn::northd
  #
@@ -35,59 +35,43 @@ index 55dd6e4..8ce05b2 100644
 +class ovn::northd($dbs_listen_ip = '0.0.0.0') {
      include ::ovn::params
 +    if $::osfamily == 'RedHat' {
-+      file { '/etc/systemd/system/ovn-northd.service.d':
-+        ensure => directory,
-+        mode   => '0755',
-+        owner  => 'root',
-+        group  => 'root'
-+      }
-+
-+      file { '/etc/systemd/system/ovn-northd.service.d/local.conf':
++      file { '/etc/sysconfig/ovn-northd':
 +        ensure  => file,
 +        mode    => '0600',
 +        owner   => 'root',
 +        group   => 'root',
-+        content => "[Service]
-+  Environment=\"OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip}\"",
-+        before  => Service['northd'],
-+        require => File['/etc/systemd/system/ovn-northd.service.d']
++        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip}",
++        before  => Service['northd']
 +      }
 +    }
  
      service { 'northd':
          ensure    => true,
 diff --git a/spec/classes/ovn_northd_spec.rb b/spec/classes/ovn_northd_spec.rb
-index 320377c..35badcb 100644
+index 320377c..50a8f47 100644
 --- a/spec/classes/ovn_northd_spec.rb
 +++ b/spec/classes/ovn_northd_spec.rb
-@@ -1,6 +1,26 @@
- require 'spec_helper'
+@@ -2,6 +2,19 @@ require 'spec_helper'
  
  describe 'ovn::northd' do
+ 
 +  shared_examples_for 'systemd env' do
 +    it 'creates systemd conf' do
-+      is_expected.to contain_file('/etc/systemd/system/ovn-northd.service.d').with(
-+        :ensure  => 'directory',
-+        :mode    => '0755',
-+        :owner   => 'root',
-+        :group   => 'root'
-+      )
-+      is_expected.to contain_file('/etc/systemd/system/ovn-northd.service.d/local.conf').with(
++      is_expected.to contain_file('/etc/sysconfig/ovn-northd').with(
 +        :ensure  => 'file',
 +        :mode    => '0600',
 +        :owner   => 'root',
 +        :group   => 'root',
-+        :content => "[Service]
-+  Environment=\"NORTHD_OPTS=--db-nb-addr=0.0.0.0 --db-sb-addr=0.0.0.0\"",
++        :content => "OVN_NORTHD_OPTS=--db-nb-addr=0.0.0.0 --db-sb-addr=0.0.0.0",
 +        :before  => 'Service[northd]',
-+        :require => 'File[/etc/systemd/system/ovn-northd.service.d]'
 +      )
 +    end
 +  end
- 
++
    shared_examples_for 'ovn northd' do
      it 'includes params' do
-@@ -56,6 +76,7 @@ describe 'ovn::northd' do
+       is_expected.to contain_class('ovn::params')
+@@ -56,6 +69,7 @@ describe 'ovn::northd' do
            }
          end
          it_behaves_like 'ovn northd'
@@ -96,5 +80,5 @@ index 320377c..35badcb 100644
      end
    end
 -- 
-2.7.4
+2.9.3
 
