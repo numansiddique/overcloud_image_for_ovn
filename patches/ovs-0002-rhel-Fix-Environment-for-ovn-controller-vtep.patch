@@ -1,0 +1,35 @@
+From patchwork Mon Nov 21 21:06:46 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [ovs-dev,1/2] rhel: Fix Environment for ovn-controller-vtep.
+From: Russell Bryant <russell@ovn.org>
+X-Patchwork-Id: 697401
+Message-Id: <20161121210647.21720-1-russell@ovn.org>
+To: dev@openvswitch.org
+Date: Mon, 21 Nov 2016 16:06:46 -0500
+
+The systemd unit for ovn-controller-vtep incorrectly specified
+Environment multiple times.  Multiple environment variables must
+be specified separated by a space to a single Environment option.
+
+Signed-off-by: Russell Bryant <russell@ovn.org>
+---
+ rhel/usr_lib_systemd_system_ovn-controller-vtep.service | 4 +---
+ 1 file changed, 1 insertion(+), 3 deletions(-)
+
+diff --git a/rhel/usr_lib_systemd_system_ovn-controller-vtep.service b/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
+index 3bd4331..88e18b6 100644
+--- a/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
++++ b/rhel/usr_lib_systemd_system_ovn-controller-vtep.service
+@@ -29,9 +29,7 @@ After=openvswitch.service
+ 
+ [Service]
+ Type=simple
+-Environment=OVS_RUNDIR=%t/openvswitch
+-Environment=OVN_DB=unix:%t/openvswitch/db.sock
+-Environment=VTEP_DB=unix:%t/openvswitch/db.sock
++Environment=OVS_RUNDIR=%t/openvswitch OVN_DB=unix:%t/openvswitch/db.sock VTEP_DB=unix:%t/openvswitch/db.sock
+ ExecStart=/usr/bin/ovn-controller-vtep -vconsole:emer -vsyslog:err -vfile:info \
+           --log-file=/var/log/openvswitch/ovn-controller-vtep.log \
+           --no-chdir --pidfile=${OVS_RUNDIR}/ovn-controller-vtep.pid \
