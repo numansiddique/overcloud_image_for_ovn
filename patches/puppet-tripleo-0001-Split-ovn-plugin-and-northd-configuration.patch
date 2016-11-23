@@ -1,4 +1,4 @@
-From b22170db2b5e0e22700b688e457de642d37acbd9 Mon Sep 17 00:00:00 2001
+From 193ff7c3d6021470f4152936c4c25c38643d559a Mon Sep 17 00:00:00 2001
 From: Steven Hardy <shardy@redhat.com>
 Date: Tue, 18 Oct 2016 11:50:51 +0100
 Subject: [PATCH] Split ovn plugin and northd configuration
@@ -17,14 +17,14 @@ Change-Id: I9af7bd837c340c3df016fc7ad4238b2941ba7a95
 Partial-Bug: #1634171
 ---
  manifests/haproxy.pp                              | 47 +++++++++++++++++++++++
- manifests/profile/base/neutron/agents/ovn.pp      |  7 ++--
- manifests/profile/base/neutron/ovn_northd.pp      | 42 ++++++++++++++++++++
- manifests/profile/base/neutron/plugins/ml2/ovn.pp | 11 ++----
- 4 files changed, 96 insertions(+), 11 deletions(-)
+ manifests/profile/base/neutron/agents/ovn.pp      | 14 ++++---
+ manifests/profile/base/neutron/ovn_northd.pp      | 40 +++++++++++++++++++
+ manifests/profile/base/neutron/plugins/ml2/ovn.pp | 25 ++++++------
+ 4 files changed, 110 insertions(+), 16 deletions(-)
  create mode 100644 manifests/profile/base/neutron/ovn_northd.pp
 
 diff --git a/manifests/haproxy.pp b/manifests/haproxy.pp
-index 2cd69c5..eedefbb 100644
+index ededc76..b9c8835 100644
 --- a/manifests/haproxy.pp
 +++ b/manifests/haproxy.pp
 @@ -271,6 +271,10 @@
@@ -38,9 +38,9 @@ index 2cd69c5..eedefbb 100644
  # [*zaqar_ws*]
  #  (optional) Enable or not Zaqar Websockets binding
  #  Defaults to false
-@@ -371,6 +375,10 @@
- #  (optional) Specify the network opendaylight is running on.
- #  Defaults to hiera('opendaylight_api_network', undef)
+@@ -375,6 +379,10 @@
+ #  (optional) Specify the network panko is running on.
+ #  Defaults to hiera('panko_api_network', undef)
  #
 +# [*ovn_dbs_network*]
 +#  (optional) Specify the network ovn_dbs is running on.
@@ -49,16 +49,16 @@ index 2cd69c5..eedefbb 100644
  # [*sahara_network*]
  #  (optional) Specify the network sahara is running on.
  #  Defaults to hiera('sahara_api_network', undef)
-@@ -430,6 +438,8 @@
- #    'nova_metadata_port' (Defaults to 8775)
- #    'nova_novnc_port' (Defaults to 6080)
+@@ -436,6 +444,8 @@
  #    'nova_novnc_ssl_port' (Defaults to 13080)
+ #    'panko_api_port' (Defaults to 8779)
+ #    'panko_api_ssl_port' (Defaults to 13779)
 +#    'ovn_nbdb_port' (Defaults to 6641)
 +#    'ovn_sbdb_port' (Defaults to 6642)
  #    'sahara_api_port' (Defaults to 8386)
  #    'sahara_api_ssl_port' (Defaults to 13386)
  #    'swift_proxy_port' (Defaults to 8080)
-@@ -503,6 +513,7 @@ class tripleo::haproxy (
+@@ -509,6 +519,7 @@ class tripleo::haproxy (
    $zaqar_api                   = hiera('zaqar_api_enabled', false),
    $ceph_rgw                    = hiera('ceph_rgw_enabled', false),
    $opendaylight                = hiera('opendaylight_api_enabled', false),
@@ -66,24 +66,24 @@ index 2cd69c5..eedefbb 100644
    $zaqar_ws                    = hiera('zaqar_api_enabled', false),
    $ui                          = hiera('enable_ui', false),
    $aodh_network                = hiera('aodh_api_network', undef),
-@@ -527,6 +538,7 @@ class tripleo::haproxy (
-   $nova_metadata_network       = hiera('nova_api_network', undef),
+@@ -534,6 +545,7 @@ class tripleo::haproxy (
    $nova_novncproxy_network     = hiera('nova_vnc_proxy_network', undef),
    $nova_osapi_network          = hiera('nova_api_network', undef),
+   $panko_network               = hiera('panko_api_network', undef),
 +  $ovn_dbs_network             = hiera('ovn_dbs_network', undef),
    $sahara_network              = hiera('sahara_api_network', undef),
    $swift_proxy_server_network  = hiera('swift_proxy_network', undef),
    $trove_network               = hiera('trove_api_network', undef),
-@@ -574,6 +586,8 @@ class tripleo::haproxy (
-     nova_metadata_port => 8775,
-     nova_novnc_port => 6080,
+@@ -583,6 +595,8 @@ class tripleo::haproxy (
      nova_novnc_ssl_port => 13080,
+     panko_api_port => 8779,
+     panko_api_ssl_port => 13779,
 +    ovn_nbdb_port => 6641,
 +    ovn_sbdb_port => 6642,
      sahara_api_port => 8386,
      sahara_api_ssl_port => 13386,
      swift_proxy_port => 8080,
-@@ -1287,6 +1301,39 @@ class tripleo::haproxy (
+@@ -1311,6 +1325,39 @@ class tripleo::haproxy (
      }
    }
  
@@ -124,42 +124,47 @@ index 2cd69c5..eedefbb 100644
      ::tripleo::haproxy::endpoint { 'zaqar_ws':
        public_virtual_ip         => $public_virtual_ip,
 diff --git a/manifests/profile/base/neutron/agents/ovn.pp b/manifests/profile/base/neutron/agents/ovn.pp
-index 443b164..4398258 100644
+index 443b164..a593092 100644
 --- a/manifests/profile/base/neutron/agents/ovn.pp
 +++ b/manifests/profile/base/neutron/agents/ovn.pp
-@@ -17,7 +17,8 @@
+@@ -17,7 +17,12 @@
  # OVN Neutron agent profile for tripleo
  #
  # [*ovn_db_host*]
 -#   The IP-Address/Hostname where OVN DBs are deployed
-+#   The IP-Address where OVN DBs are listening.
++#   (Optional) The IP-Address where OVN DBs are listening.
 +#   Defaults to hiera('ovn_dbs_vip')
++#
++# [*ovn_sbdb_port*]
++#   (Optional) Port number on which southbound database is listening
++#   Defaults to hiera('ovn::southbound::port')
  #
  # [*step*]
  #   (Optional) The current step in deployment. See tripleo-heat-templates
-@@ -25,14 +26,14 @@
+@@ -25,14 +30,13 @@
  #   Defaults to hiera('step')
  #
  class tripleo::profile::base::neutron::agents::ovn (
 -  $ovn_db_host,
-+  $ovn_db_host = hiera('ovn_dbs_vip'),
-   $step = hiera('step')
+-  $step = hiera('step')
++  $ovn_db_host    = hiera('ovn_dbs_vip'),
++  $ovn_sbdb_port  = hiera('ovn::southbound::port'),
++  $step           = hiera('step')
  ) {
    if $step >= 4 {
-     $ovn_sbdb_port = hiera('ovn::southbound::port')
+-    $ovn_sbdb_port = hiera('ovn::southbound::port')
      class { '::ovn::controller':
        ovn_remote     => "tcp:${ovn_db_host}:${ovn_sbdb_port}",
 -      ovn_encap_type => hiera('ovn::southboud::encap_type')
-+      ovn_encap_type => hiera('ovn::southbound::encap_type')
      }
    }
  }
 diff --git a/manifests/profile/base/neutron/ovn_northd.pp b/manifests/profile/base/neutron/ovn_northd.pp
 new file mode 100644
-index 0000000..71ab07b
+index 0000000..0b46d5c
 --- /dev/null
 +++ b/manifests/profile/base/neutron/ovn_northd.pp
-@@ -0,0 +1,42 @@
+@@ -0,0 +1,40 @@
 +# Copyright 2016 Red Hat, Inc.
 +#
 +# Licensed under the Apache License, Version 2.0 (the "License"); you may
@@ -189,13 +194,11 @@ index 0000000..71ab07b
 +#
 +class tripleo::profile::base::neutron::ovn_northd (
 +  $bootstrap_node = hiera('bootstrap_nodeid', undef),
-+  $step = hiera('step'),
++  $step           = hiera('step'),
 +) {
 +  if $step >= 4 {
 +    # Note this only runs on the first node in the cluster when
 +    # deployed on a role where multiple nodes exist.
-+    # We'll need to special-case the haproxy config to handle this
-+    # so it can still be accessed via the ovn_northd_vip
 +    if $::hostname == downcase($bootstrap_node) {
 +      include ::ovn::northd
 +    }
@@ -203,26 +206,37 @@ index 0000000..71ab07b
 +}
 +
 diff --git a/manifests/profile/base/neutron/plugins/ml2/ovn.pp b/manifests/profile/base/neutron/plugins/ml2/ovn.pp
-index 46477a7..ca42795 100644
+index 46477a7..b5b7a0a 100644
 --- a/manifests/profile/base/neutron/plugins/ml2/ovn.pp
 +++ b/manifests/profile/base/neutron/plugins/ml2/ovn.pp
-@@ -17,7 +17,8 @@
+@@ -17,7 +17,16 @@
  # OVN Neutron ML2 profile for tripleo
  #
  # [*ovn_db_host*]
 -#   The IP-Address/Hostname where OVN DBs are deployed
 +#   The IP-Address where OVN DBs are listening.
 +#   Defaults to hiera('ovn_dbs_vip')
++#
++# [*ovn_nb_port*]
++#   (Optional) Port number on which northbound database is listening
++#   Defaults to hiera('ovn::northbound::port')
++#
++# [*ovn_sb_port*]
++#   (Optional) Port number on which southbound database is listening
++#   Defaults to hiera('ovn::southbound::port')
  #
  # [*step*]
  #   (Optional) The current step in deployment. See tripleo-heat-templates
-@@ -25,16 +26,10 @@
+@@ -25,18 +34,12 @@
  #   Defaults to hiera('step')
  #
  class tripleo::profile::base::neutron::plugins::ml2::ovn (
 -  $ovn_db_host,
+-  $step = hiera('step')
 +  $ovn_db_host = hiera('ovn_dbs_vip'),
-   $step = hiera('step')
++  $ovn_nb_port = hiera('ovn::northbound::port'),
++  $ovn_sb_port = hiera('ovn::southbound::port'),
++  $step        = hiera('step')
  ) {
    if $step >= 4 {
 -    if $::hostname == $ovn_db_host {
@@ -231,9 +245,11 @@ index 46477a7..ca42795 100644
 -      # containers
 -      include ::ovn::northd
 -    }
-     $ovn_nb_port = hiera('ovn::northbound::port')
-     $ovn_sb_port = hiera('ovn::southbound::port')
+-    $ovn_nb_port = hiera('ovn::northbound::port')
+-    $ovn_sb_port = hiera('ovn::southbound::port')
      class { '::neutron::plugins::ml2::ovn':
+       ovn_nb_connection => "tcp:${ovn_db_host}:${ovn_nb_port}",
+       ovn_sb_connection => "tcp:${ovn_db_host}:${ovn_sb_port}",
 -- 
 2.7.4
 
