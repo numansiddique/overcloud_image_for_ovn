@@ -1,0 +1,230 @@
+From 7287eb96dbe97e1d6db9937b0af5ec889aa28606 Mon Sep 17 00:00:00 2001
+From: Babu Shanmugam <bschanmu@redhat.com>
+Date: Fri, 18 Nov 2016 11:56:14 +0000
+Subject: [PATCH 2/2] Add support for bridge mappings
+
+When OVN virtual networks wants to access the provider networks it does
+so with the help of a special port type 'localnet'. For the localnet ports
+to be present in the agent side, the agent has to carry some details
+in the vswitch DB as well a bridge has to be setup for the same.
+
+This patch help to setup up the bridge for provider network mapping and to
+add appropriate interfaces to the bridge
+
+Change-Id: Ia6d66fa954571328c0ac3542af17303def382c1a
+---
+ manifests/controller.pp             | 90 ++++++++++++++++++++++---------------
+ manifests/controller/bridge.pp      | 14 ++++++
+ manifests/controller/port.pp        | 15 +++++++
+ spec/classes/ovn_controller_spec.rb | 26 ++++++++---
+ 4 files changed, 104 insertions(+), 41 deletions(-)
+ create mode 100644 manifests/controller/bridge.pp
+ create mode 100644 manifests/controller/port.pp
+
+diff --git a/manifests/controller.pp b/manifests/controller.pp
+index 5a013ff..d685658 100644
+--- a/manifests/controller.pp
++++ b/manifests/controller.pp
+@@ -16,50 +16,68 @@
+ #   (Required) IP address of the hypervisor(in which this module is installed) to which
+ #   the other controllers would use to create a tunnel to this controller
+ #
++# [*ovn_bridge_mappings*]
++#   (optional) List of <ovn-network-name>:<bridge-name>
++#   Defaults to empty list
++#
++# [*bridge_interface_mappings*]
++#   (optional) List of <bridge-name>:<interface-name> when doing bridge mapping
++#   Defaults to empty list
++#
+ class ovn::controller(
+-    $ovn_remote,
+-    $ovn_encap_ip,
+-    $ovn_encap_type = 'geneve',
++  $ovn_remote,
++  $ovn_encap_ip,
++  $ovn_encap_type            = 'geneve',
++  $ovn_bridge_mappings       = [],
++  $bridge_interface_mappings = []
+ ) {
+-    include ::ovn::params
+-    include ::vswitch::ovs
+-    include ::stdlib
++  include ::ovn::params
++  include ::vswitch::ovs
++  include ::stdlib
+ 
+-    validate_string($ovn_remote)
+-    validate_string($ovn_encap_ip)
++  validate_string($ovn_remote)
++  validate_string($ovn_encap_ip)
+ 
+-    service { 'controller':
+-        ensure    => true,
+-        name      => $::ovn::params::ovn_controller_service_name,
+-        hasstatus => $::ovn::params::ovn_controller_service_status,
+-        pattern   => $::ovn::params::ovn_controller_service_pattern,
+-        enable    => true,
+-        require   => [Vs_config['external_ids:ovn-remote'],
+-                      Vs_config['external_ids:ovn-encap-type'],
+-                      Vs_config['external_ids:ovn-encap-ip']]
+-    }
++  service { 'controller':
++      ensure    => true,
++      name      => $::ovn::params::ovn_controller_service_name,
++      hasstatus => $::ovn::params::ovn_controller_service_status,
++      pattern   => $::ovn::params::ovn_controller_service_pattern,
++      enable    => true,
++      require   => [Vs_config['external_ids:ovn-remote'],
++                    Vs_config['external_ids:ovn-encap-type'],
++                    Vs_config['external_ids:ovn-encap-ip']]
++  }
+ 
+-    package { $::ovn::params::ovn_controller_package_name:
+-        ensure => present,
+-        name   => $::ovn::params::ovn_controller_package_name,
+-        before => Service['controller']
+-    }
++  package { $::ovn::params::ovn_controller_package_name:
++      ensure => present,
++      name   => $::ovn::params::ovn_controller_package_name,
++      before => Service['controller']
++  }
+ 
+-    vs_config { 'external_ids:ovn-remote':
+-        ensure  => present,
+-        value   => $ovn_remote,
+-        require => Service['openvswitch'],
+-    }
++  $config_items = {
++    'external_ids:ovn-remote' => { 'value' => $ovn_remote, 'ensure' => present },
++    'external_ids:ovn-encap-type' => { 'value' => $ovn_encap_type, 'ensure' => present },
++    'external_ids:ovn-encap-ip' => { 'value' => $ovn_encap_ip, 'ensure' => present  },
++  }
+ 
+-    vs_config { 'external_ids:ovn-encap-type':
+-        ensure  => present,
+-        value   => $ovn_encap_type,
+-        require => Service['openvswitch'],
++  if !empty($ovn_bridge_mappings) {
++    $bridge_items = {
++      'external_ids:ovn-bridge-mappings' => { 'value' => join(any2array($ovn_bridge_mappings), ','), 'ensure' => present }
+     }
+ 
+-    vs_config { 'external_ids:ovn-encap-ip':
+-        ensure  => present,
+-        value   => $ovn_encap_ip,
+-        require => Service['openvswitch'],
++    ovn::controller::bridge { $ovn_bridge_mappings:
++      before  => Service['controller'],
++      require => Service['openvswitch']
++    }
++    ovn::controller::port { $bridge_interface_mappings:
++      before  => Service['controller'],
++      require => Service['openvswitch']
+     }
++  } else {
++    $bridge_items = {}
++  }
++
++  create_resources('vs_config', merge($config_items, $bridge_items))
++  Service['openvswitch'] -> Vs_config<||> -> Service['controller']
+ }
+diff --git a/manifests/controller/bridge.pp b/manifests/controller/bridge.pp
+new file mode 100644
+index 0000000..dc96c54
+--- /dev/null
++++ b/manifests/controller/bridge.pp
+@@ -0,0 +1,14 @@
++# ovn controller bridge settings
++# == Define: ovn::controller::bridge
++#
++# Bridge settings for ovn controller bridge mappings
++# $name is OVN bridge mapping in the format network-name:bridge-name
++#
++define ovn::controller::bridge {
++  $map_split = split($name, ':')
++  $bridge    = $map_split[1]
++  vs_bridge { $bridge:
++    ensure       => present,
++    external_ids => "bridge-id=${bridge}"
++  }
++}
+diff --git a/manifests/controller/port.pp b/manifests/controller/port.pp
+new file mode 100644
+index 0000000..70dbe24
+--- /dev/null
++++ b/manifests/controller/port.pp
+@@ -0,0 +1,15 @@
++# ovn controller bridge-port settings
++# == Define: ovn::controller::port
++#
++# Bridge-interface setting for ovn bridge mapping
++# $name should be the mapping in the format <bridge-name>:<interface-name>
++#
++define ovn::controller::port {
++  $map_split = split($name, ':')
++  $bridge    = $map_split[0]
++  $iface     = $map_split[1]
++  vs_port { $iface:
++    ensure => present,
++    bridge => $bridge
++  }
++}
+diff --git a/spec/classes/ovn_controller_spec.rb b/spec/classes/ovn_controller_spec.rb
+index df0a1d7..dda4f65 100644
+--- a/spec/classes/ovn_controller_spec.rb
++++ b/spec/classes/ovn_controller_spec.rb
+@@ -3,9 +3,11 @@ require 'spec_helper'
+ describe 'ovn::controller' do
+ 
+   let :params do
+-    { :ovn_remote     => 'tcp:x.x.x.x:5000',
+-      :ovn_encap_type => 'geneve',
+-      :ovn_encap_ip   => '1.2.3.4'
++    { :ovn_remote                => 'tcp:x.x.x.x:5000',
++      :ovn_encap_type            => 'geneve',
++      :ovn_encap_ip              => '1.2.3.4',
++      :ovn_bridge_mappings       => ['physnet-1:br-1'],
++      :bridge_interface_mappings => ['br-1:eth1']
+     }
+   end
+ 
+@@ -40,18 +42,32 @@ describe 'ovn::controller' do
+       is_expected.to contain_vs_config('external_ids:ovn-remote').with(
+         :ensure  => 'present',
+         :value   => params[:ovn_remote],
+-        :require => 'Service[openvswitch]'
+       )
+ 
+       is_expected.to contain_vs_config('external_ids:ovn-encap-type').with(
+         :ensure  => 'present',
+         :value   => params[:ovn_encap_type],
+-        :require => 'Service[openvswitch]'
+       )
+ 
+       is_expected.to contain_vs_config('external_ids:ovn-encap-ip').with(
+         :ensure  => 'present',
+         :value   => params[:ovn_encap_ip],
++      )
++    end
++
++    it 'configures bridge mappings' do
++      is_expected.to contain_vs_config('external_ids:ovn-bridge-mappings').with(
++        :ensure   => 'present',
++        :value    => 'physnet-1:br-1',
++      )
++
++      is_expected.to contain_ovn__controller__bridge(params[:ovn_bridge_mappings].join(',')).with(
++        :before  => 'Service[controller]',
++        :require => 'Service[openvswitch]'
++      )
++
++      is_expected.to contain_ovn__controller__port(params[:bridge_interface_mappings].join(',')).with(
++        :before  => 'Service[controller]',
+         :require => 'Service[openvswitch]'
+       )
+     end
+-- 
+2.7.4
+

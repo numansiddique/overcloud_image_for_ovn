@@ -1,7 +1,7 @@
-From c927a6be4a03e87bdb62b01c0b27b3710d2c3fdb Mon Sep 17 00:00:00 2001
+From ca6db5e76d14cf8f89c20bffa880803f417efff5 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 12:05:49 +0000
-Subject: [PATCH] Input DB listen IP address for the northd
+Subject: [PATCH 1/2] Input DB listen IP address for the northd
 
 When ovn-northd is started, along with it ovsdb servers for the southbound
 and northbound databases are also started. Without additional options for the
