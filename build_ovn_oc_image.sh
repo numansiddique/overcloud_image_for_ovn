@@ -193,11 +193,13 @@ generate_ovs_rpms_and_install_in_oc_image() {
     cat << EOF > $OVN_IMAGE_PATH/oc_install_packages.sh
 #!/bin/bash
 sudo yum remove -y openvswitch
+sudo yum remove -y python-openvswitch
 sudo rpm -ihv /home/openvswitch-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-common-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-central-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-ovn-host-2*x86_64.rpm
 sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
+sudo rpm -ihv /home/python-openvswitch*.rpm
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
 EOF
@@ -207,6 +209,16 @@ EOF
     cp $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/RPMS/x86_64/*.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
     cp $OVN_IMAGE_PATH/oc_install_packages.sh $TMP_OC_IMAGE_MOUNT_PATH/home/
     chmod 0755 $TMP_OC_IMAGE_MOUNT_PATH/home/oc_install_packages.sh
+    guestunmount $TMP_OC_IMAGE_MOUNT_PATH
+
+    # Build the python-openvswitch package with native C json parser implementation.
+    rm -rf $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/
+    cd $OVN_IMAGE_PATH/ovs
+    make rpm-fedora-python-ovs
+    cd $OVN_IMAGE_PATH
+    mount_oc_image
+    log_print "Copying the python-openvswitch RPM to the overcloud image"
+    cp $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/RPMS/x86_64/*.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
     guestunmount $TMP_OC_IMAGE_MOUNT_PATH
     rm -f $OVN_IMAGE_PATH/oc_install_packages.sh
     log_print "Installing the required packages for OVN"

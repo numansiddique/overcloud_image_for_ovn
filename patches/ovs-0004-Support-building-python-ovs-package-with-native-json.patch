@@ -1,0 +1,178 @@
+From bf7fc1ce8831c48cf51ec4982902eeff402bdc9e Mon Sep 17 00:00:00 2001
+From: Numan Siddique <nusiddiq@redhat.com>
+Date: Fri, 25 Nov 2016 22:52:16 +0530
+Subject: [PATCH] Support building python ovs package with native json impl
+
+Signed-off-by: Numan Siddique <nusiddiq@redhat.com>
+---
+ python/setup.py                        |   9 ++-
+ rhel/automake.mk                       |   8 +++
+ rhel/python-openvswitch-fedora.spec.in | 103 +++++++++++++++++++++++++++++++++
+ 3 files changed, 119 insertions(+), 1 deletion(-)
+ create mode 100644 rhel/python-openvswitch-fedora.spec.in
+
+diff --git a/python/setup.py b/python/setup.py
+index 19c1f18..5070c9b 100644
+--- a/python/setup.py
++++ b/python/setup.py
+@@ -12,6 +12,7 @@
+ 
+ from __future__ import print_function
+ import sys
++import os
+ 
+ from distutils.command.build_ext import build_ext
+ from distutils.errors import CCompilerError, DistutilsExecError, \
+@@ -33,6 +34,10 @@ ext_errors = (CCompilerError, DistutilsExecError, DistutilsPlatformError)
+ if sys.platform == 'win32':
+     ext_errors += (IOError, ValueError)
+ 
++# Get the include path if defined
++include_dirs = os.environ.get('OVS_INCLUDE_DIR', '.')
++library_dirs = os.environ.get('OVS_LIB_DIR', '.')
++
+ 
+ class BuildFailed(Exception):
+     pass
+@@ -77,7 +82,9 @@ setup_args = dict(
+         'Programming Language :: Python :: 3.4',
+     ],
+     ext_modules=[setuptools.Extension("ovs._json", sources=["ovs/_json.c"],
+-                                      libraries=['openvswitch'])],
++                                      libraries=['openvswitch'],
++                                      include_dirs=[include_dirs],
++                                      library_dirs=[library_dirs])],
+     cmdclass={'build_ext': try_build_ext},
+ )
+ 
+diff --git a/rhel/automake.mk b/rhel/automake.mk
+index 45aa9b1..58240a2 100644
+--- a/rhel/automake.mk
++++ b/rhel/automake.mk
+@@ -62,6 +62,14 @@ rpm-fedora: dist $(srcdir)/rhel/openvswitch-fedora.spec
+                  -D "_topdir ${RPMBUILD_TOP}" \
+                  -ba $(srcdir)/rhel/openvswitch-fedora.spec
+ 
++# Build Python binding RPM with native json
++rpm-fedora-python-ovs: dist $(srcdir)/rhel/python-openvswitch-fedora.spec
++	${MKDIR_P} ${RPMBUILD_TOP}/SOURCES
++	cp ${DIST_ARCHIVES} ${RPMBUILD_TOP}/SOURCES
++	rpmbuild ${RPMBUILD_OPT} \
++                 -D "_topdir ${RPMBUILD_TOP}" \
++                 -ba $(srcdir)/rhel/python-openvswitch-fedora.spec
++
+ # Build kernel datapath RPM
+ rpm-fedora-kmod: dist $(srcdir)/rhel/openvswitch-kmod-fedora.spec
+ 	${MKDIR_P} ${RPMBUILD_TOP}/SOURCES
+diff --git a/rhel/python-openvswitch-fedora.spec.in b/rhel/python-openvswitch-fedora.spec.in
+new file mode 100644
+index 0000000..cd863d8
+--- /dev/null
++++ b/rhel/python-openvswitch-fedora.spec.in
+@@ -0,0 +1,103 @@
++# Spec file for Python Open vSwitch with native json library
++
++# Copyright (C) 2016 Red Hat, Inc.
++#
++# Copying and distribution of this file, with or without modification,
++# are permitted in any medium without royalty provided the copyright
++# notice and this notice are preserved.  This file is offered as-is,
++# without warranty of any kind.
++#
++
++# If libcap-ng isn't available and there is no need for running OVS
++# as regular user, specify the '--without libcapng'
++%bcond_without libcapng
++
++# Enable PIE, bz#955181
++%global _hardened_build 1
++
++# some distros (e.g: RHEL-7) don't define _rundir macro yet
++# Fedora 15 onwards uses /run as _rundir
++%if 0%{!?_rundir:1}
++%define _rundir /run
++%endif
++
++%global pkgname openvswitch
++%global srcname openvswitch
++
++Name: python-%{pkgname}
++Summary: Open vSwitch python bindings
++Group: System Environment/Daemons
++URL: http://www.openvswitch.org/
++Version: @VERSION@
++
++# Nearly all of openvswitch is ASL 2.0.  The bugtool is LGPLv2+, and the
++# lib/sflow*.[ch] files are SISSL
++License: ASL 2.0 and LGPLv2+ and SISSL
++Release: 1%{?dist}
++Source: http://openvswitch.org/releases/%{pkgname}-%{version}.tar.gz
++
++BuildRequires: autoconf automake libtool
++BuildRequires: systemd-units openssl openssl-devel
++BuildRequires: python python-twisted-core python-zope-interface python-six
++BuildRequires: desktop-file-utils
++BuildRequires: groff graphviz
++BuildRequires: checkpolicy, selinux-policy-devel
++# make check dependencies
++BuildRequires: procps-ng
++%if %{with libcapng}
++BuildRequires: libcap-ng libcap-ng-devel
++%endif
++
++Requires: openssl iproute module-init-tools
++Requires: python
++Requires: python-six
++
++%description
++Python bindings for the Open vSwitch database
++
++%prep
++rm -rf $RPM_BUILD_DIR/%{pkgname}-%{version}
++cp $RPM_SOURCE_DIR/%{pkgname}-%{version}.tar.gz .
++tar xzvf %{pkgname}-%{version}.tar.gz
++
++%build
++cd %{pkgname}-%{version}
++%configure \
++%if %{with libcapng}
++	--enable-libcapng \
++%else
++	--disable-libcapng \
++%endif
++%if %{with dpdk}
++	--with-dpdk=$(dirname %{_datadir}/dpdk/*/.config) \
++%endif
++	--enable-ssl \
++	--with-pkidir=%{_sharedstatedir}/openvswitch/pki \
++        --enable-shared
++
++make %{?_smp_mflags}
++
++export OVS_INCLUDE_DIR=$PWD/include/
++export OVS_LIB_DIR=$PWD/lib/.libs/
++cd python
++%{__python2} setup.py build
++
++%install
++rm -rf $RPM_BUILD_ROOT
++
++cd %{pkgname}-%{version}/python
++%{__python2} setup.py install -O1 --skip-build --root %{buildroot}
++cd ..
++cp -d lib/.libs/libopenvswitch.so* %{buildroot}/%{_libdir}/
++
++%clean
++rm -rf $RPM_BUILD_ROOT
++
++%files
++%{python2_sitearch}/ovs
++%{python2_sitearch}/ovs-%{version}-py?.?.egg-info
++%{_libdir}/*.so*
++
++%changelog
++* Fri Nov 25 2016 Numan Siddique <nusiddiq@redhat.com>
++- First build on F25
+-- 
+2.9.3
+

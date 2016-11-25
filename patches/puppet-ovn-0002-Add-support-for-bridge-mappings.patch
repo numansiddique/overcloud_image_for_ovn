@@ -1,4 +1,4 @@
-From 7438bb8f58cfe41861d44917796be6692fd9daad Mon Sep 17 00:00:00 2001
+From 9fc141dc9373029b90cacaef61652586c8551651 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 18 Nov 2016 11:56:14 +0000
 Subject: [PATCH 2/2] Add support for bridge mappings
@@ -22,7 +22,7 @@ Change-Id: Ia6d66fa954571328c0ac3542af17303def382c1a
  create mode 100644 manifests/controller/port.pp
 
 diff --git a/manifests/controller.pp b/manifests/controller.pp
-index 5a013ff..d685658 100644
+index 5a013ff..305a37c 100644
 --- a/manifests/controller.pp
 +++ b/manifests/controller.pp
 @@ -16,50 +16,68 @@
@@ -97,9 +97,9 @@ index 5a013ff..d685658 100644
 -        require => Service['openvswitch'],
 -    }
 +  $config_items = {
-+    'external_ids:ovn-remote' => { 'value' => $ovn_remote, 'ensure' => present },
++    'external_ids:ovn-remote'     => { 'value' => $ovn_remote, 'ensure' => present },
 +    'external_ids:ovn-encap-type' => { 'value' => $ovn_encap_type, 'ensure' => present },
-+    'external_ids:ovn-encap-ip' => { 'value' => $ovn_encap_ip, 'ensure' => present  },
++    'external_ids:ovn-encap-ip'   => { 'value' => $ovn_encap_ip, 'ensure' => present  },
 +  }
  
 -    vs_config { 'external_ids:ovn-encap-type':
