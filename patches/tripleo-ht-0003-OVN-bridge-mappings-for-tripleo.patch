@@ -1,7 +1,7 @@
-From 9b7e9caec2e5a78fc771777e146540bf3129539c Mon Sep 17 00:00:00 2001
+From 2f2891f95e2f8f23ed99b880a363c9bf2060d071 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 25 Nov 2016 04:52:35 +0000
-Subject: [PATCH 3/3] OVN bridge mappings for tripleo
+Subject: [PATCH 3/4] OVN bridge mappings for tripleo
 
 This patch adds an additional configuration setting for OVN bridge mappings
 
@@ -13,7 +13,7 @@ Depends-On: Ia6d66fa954571328c0ac3542af17303def382c1a
  2 files changed, 10 insertions(+)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index b29e107..9dd1379 100644
+index 3d6911d..e7a3589 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
 @@ -24,3 +24,4 @@ parameter_defaults:

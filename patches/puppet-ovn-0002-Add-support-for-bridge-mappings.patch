@@ -1,4 +1,4 @@
-From 9fc141dc9373029b90cacaef61652586c8551651 Mon Sep 17 00:00:00 2001
+From 8932b838ac5850c2b16ab115a8af35e2480561de Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 18 Nov 2016 11:56:14 +0000
 Subject: [PATCH 2/2] Add support for bridge mappings
@@ -13,19 +13,19 @@ add appropriate interfaces to the bridge
 
 Change-Id: Ia6d66fa954571328c0ac3542af17303def382c1a
 ---
- manifests/controller.pp             | 90 ++++++++++++++++++++++---------------
+ manifests/controller.pp             | 91 ++++++++++++++++++++++---------------
  manifests/controller/bridge.pp      | 14 ++++++
- manifests/controller/port.pp        | 15 +++++++
- spec/classes/ovn_controller_spec.rb | 26 ++++++++---
- 4 files changed, 104 insertions(+), 41 deletions(-)
+ manifests/controller/port.pp        | 15 ++++++
+ spec/classes/ovn_controller_spec.rb | 31 +++++++++++--
+ 4 files changed, 110 insertions(+), 41 deletions(-)
  create mode 100644 manifests/controller/bridge.pp
  create mode 100644 manifests/controller/port.pp
 
 diff --git a/manifests/controller.pp b/manifests/controller.pp
-index 5a013ff..305a37c 100644
+index 5a013ff..a2ed83b 100644
 --- a/manifests/controller.pp
 +++ b/manifests/controller.pp
-@@ -16,50 +16,68 @@
+@@ -16,50 +16,69 @@
  #   (Required) IP address of the hypervisor(in which this module is installed) to which
  #   the other controllers would use to create a tunnel to this controller
  #
@@ -100,6 +100,7 @@ index 5a013ff..305a37c 100644
 +    'external_ids:ovn-remote'     => { 'value' => $ovn_remote, 'ensure' => present },
 +    'external_ids:ovn-encap-type' => { 'value' => $ovn_encap_type, 'ensure' => present },
 +    'external_ids:ovn-encap-ip'   => { 'value' => $ovn_encap_ip, 'ensure' => present  },
++    'external_ids:hostname'       => { 'value' => $::fqdn, 'ensure' => present  },
 +  }
  
 -    vs_config { 'external_ids:ovn-encap-type':
@@ -172,7 +173,7 @@ index 0000000..70dbe24
 +  }
 +}
 diff --git a/spec/classes/ovn_controller_spec.rb b/spec/classes/ovn_controller_spec.rb
-index df0a1d7..dda4f65 100644
+index df0a1d7..bc53f04 100644
 --- a/spec/classes/ovn_controller_spec.rb
 +++ b/spec/classes/ovn_controller_spec.rb
 @@ -3,9 +3,11 @@ require 'spec_helper'
@@ -190,7 +191,7 @@ index df0a1d7..dda4f65 100644
      }
    end
  
-@@ -40,18 +42,32 @@ describe 'ovn::controller' do
+@@ -40,18 +42,37 @@ describe 'ovn::controller' do
        is_expected.to contain_vs_config('external_ids:ovn-remote').with(
          :ensure  => 'present',
          :value   => params[:ovn_remote],
@@ -206,6 +207,11 @@ index df0a1d7..dda4f65 100644
        is_expected.to contain_vs_config('external_ids:ovn-encap-ip').with(
          :ensure  => 'present',
          :value   => params[:ovn_encap_ip],
++      )
++
++      is_expected.to contain_vs_config('external_ids:hostname').with(
++        :ensure  => 'present',
++        :value   => 'foo.example.com',
 +      )
 +    end
 +

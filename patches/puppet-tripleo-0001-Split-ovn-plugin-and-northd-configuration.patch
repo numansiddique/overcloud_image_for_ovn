@@ -1,4 +1,4 @@
-From 193ff7c3d6021470f4152936c4c25c38643d559a Mon Sep 17 00:00:00 2001
+From c30e0241ce7dbff02dd1573f7d21bf2a0c42b503 Mon Sep 17 00:00:00 2001
 From: Steven Hardy <shardy@redhat.com>
 Date: Tue, 18 Oct 2016 11:50:51 +0100
 Subject: [PATCH] Split ovn plugin and northd configuration
@@ -24,7 +24,7 @@ Partial-Bug: #1634171
  create mode 100644 manifests/profile/base/neutron/ovn_northd.pp
 
 diff --git a/manifests/haproxy.pp b/manifests/haproxy.pp
-index ededc76..b9c8835 100644
+index 2f3f062..2f18ebf 100644
 --- a/manifests/haproxy.pp
 +++ b/manifests/haproxy.pp
 @@ -271,6 +271,10 @@
@@ -83,7 +83,7 @@ index ededc76..b9c8835 100644
      sahara_api_port => 8386,
      sahara_api_ssl_port => 13386,
      swift_proxy_port => 8080,
-@@ -1311,6 +1325,39 @@ class tripleo::haproxy (
+@@ -1312,6 +1326,39 @@ class tripleo::haproxy (
      }
    }
  
@@ -251,5 +251,5 @@ index 46477a7..b5b7a0a 100644
        ovn_nb_connection => "tcp:${ovn_db_host}:${ovn_nb_port}",
        ovn_sb_connection => "tcp:${ovn_db_host}:${ovn_sb_port}",
 -- 
-2.7.4
+2.9.3
 

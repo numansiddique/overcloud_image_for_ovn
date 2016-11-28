@@ -1,4 +1,4 @@
-From f71a4b532c90d5ff124a4ee2350c2eccbe85d6b4 Mon Sep 17 00:00:00 2001
+From b67bc12cfe374e5139d43edb26a2932a5f0bae00 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 12:05:49 +0000
 Subject: [PATCH 1/2] Input DB listen IP address for the northd

@@ -1,7 +1,7 @@
-From c7a75eb859e33305cfdc6b50d1353d1748031355 Mon Sep 17 00:00:00 2001
+From e26248ae5363302a2c73d665ff9f1ff08ad1cfa7 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 11:42:12 +0000
-Subject: [PATCH 2/3] OVN plugin configuration fixes
+Subject: [PATCH 2/4] OVN plugin configuration fixes
 
 This patch renames certain ovn plugin and controller configuration
 parameters as well as adds some additional ml2 configuration parameters.
@@ -15,7 +15,7 @@ Change-Id: Idc9e7ef4a1b88013bca3eac3c136e4710e38a5c0
  3 files changed, 28 insertions(+), 9 deletions(-)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index 3bd5606..b29e107 100644
+index 3da560c..3d6911d 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
 @@ -3,6 +3,7 @@
