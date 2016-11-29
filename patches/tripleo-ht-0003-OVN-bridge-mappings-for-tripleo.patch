@@ -1,0 +1,52 @@
+From c2d5d2780c0dc4f0c9d4e8afedcd5f2d1fc1c190 Mon Sep 17 00:00:00 2001
+From: Babu Shanmugam <bschanmu@redhat.com>
+Date: Fri, 25 Nov 2016 04:52:35 +0000
+Subject: [PATCH 3/3] OVN bridge mappings for tripleo
+
+This patch adds an additional configuration setting for OVN bridge mappings
+
+Change-Id: I99f2c0c8e633e63273e2469d95fbabbbc665c87c
+Depends-On: Ia6d66fa954571328c0ac3542af17303def382c1a
+---
+ environments/neutron-ml2-ovn.yaml               | 1 +
+ puppet/services/neutron-compute-plugin-ovn.yaml | 9 +++++++++
+ 2 files changed, 10 insertions(+)
+
+diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
+index 3d6911d..e7a3589 100644
+--- a/environments/neutron-ml2-ovn.yaml
++++ b/environments/neutron-ml2-ovn.yaml
+@@ -24,3 +24,4 @@ parameter_defaults:
+   NeutronTypeDrivers: 'geneve,vlan,flat'
+   NeutronNetworkType: 'geneve'
+   NeutronServicePlugins: 'qos,networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
++  OVNBridgeMappings: 'datacentre:br-ex'
+diff --git a/puppet/services/neutron-compute-plugin-ovn.yaml b/puppet/services/neutron-compute-plugin-ovn.yaml
+index 66cec95..7baa3c1 100644
+--- a/puppet/services/neutron-compute-plugin-ovn.yaml
++++ b/puppet/services/neutron-compute-plugin-ovn.yaml
+@@ -26,6 +26,10 @@ parameters:
+     description: Tunnel encapsulation type
+     type: string
+     default: geneve
++  OVNBridgeMappings:
++    description: Bridge mappings for the localnet configuration
++    type: comma_delimited_list
++    default: ''
+ 
+ 
+ outputs:
+@@ -37,5 +41,10 @@ outputs:
+         ovn::southbound::port: {get_param: OVNSouthboundServerPort}
+         ovn::controller::ovn_encap_type: {get_param: OVNTunnelEncapType}
+         ovn::controller::ovn_encap_ip: {get_param: [ServiceNetMap, NeutronApiNetwork]}
++        ovn::controller::ovn_bridge_mappings:
++          str_replace:
++            template: MAPPINGS
++            params:
++              MAPPINGS: {get_param: OVNBridgeMappings}
+       step_config: |
+         include ::tripleo::profile::base::neutron::agents::ovn
+-- 
+2.9.3
+
