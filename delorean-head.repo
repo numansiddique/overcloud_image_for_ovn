@@ -1,0 +1,8 @@
+cat /etc/yum.repos.d/delorean-head.repo
+[delorean-head]
+name=delorean-python-os-brick-eca5a7f2e0d23da7367646817451c907866967c5
+baseurl=https://trunk.rdoproject.org/centos7-master-head/ec/a5/eca5a7f2e0d23da7367646817451c907866967c5_f2819f3c
+enabled=0
+gpgcheck=0
+priority=1
+

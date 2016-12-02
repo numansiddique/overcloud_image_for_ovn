@@ -142,6 +142,7 @@ sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-central
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-kmod
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
+sudo yum remove -y python-networking-bigswitch.noarch
 EOF
 
     mount_oc_image
@@ -202,6 +203,7 @@ sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
 sudo rpm -ihv /home/python-openvswitch*.rpm
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
+sudo yum remove -y python-networking-bigswitch.noarch
 EOF
 
     mount_oc_image
@@ -289,7 +291,15 @@ apply_ovn_patches_in_oc_image() {
         rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo/.gitreview
     fi
 
+    # Clone the networking-ovn and apply the patches
+    git clone https://github.com/openstack/networking-ovn networking-ovn
+
+    # Cope the delorean-head repo to the oc image
+    cp $OVN_IMAGE_PATH/delorean-head.repo  $TMP_OC_IMAGE_MOUNT_PATH/etc/yum.repos.d/
     guestunmount $TMP_OC_IMAGE_MOUNT_PATH
+
+    # Update the oslo.policy from the delorean-head repo
+    run_command_in_oc_image "sudo yum update --enablerepo delorean-head -y python2-oslo-policy"
 
     log_print "Please use the heat templates present here $RUN_DIR/ht_templates_for_ovn for the deployment"
 }
