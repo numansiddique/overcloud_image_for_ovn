@@ -142,6 +142,7 @@ sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-ovn-central
 sudo yum --enablerepo=$OVS_REPO_NAME install -y openvswitch-kmod
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
+sudo yum install -y openstack-neutron-openvswitch
 sudo yum remove -y python-networking-bigswitch.noarch
 EOF
 
@@ -203,6 +204,7 @@ sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
 sudo rpm -ihv /home/python-openvswitch*.rpm
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
+sudo yum install -y openstack-neutron-openvswitch
 sudo yum remove -y python-networking-bigswitch.noarch
 EOF
 
