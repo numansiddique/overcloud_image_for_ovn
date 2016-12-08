@@ -1,7 +1,7 @@
-From 62ce192488ae3469e0c7d8d051223e40afadd73d Mon Sep 17 00:00:00 2001
+From c344d2151481c6571f793429d47d35b2a2c54fd3 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 18 Nov 2016 11:56:14 +0000
-Subject: [PATCH 2/2] Add support for bridge mappings
+Subject: [PATCH 2/3] Add support for bridge mappings
 
 When OVN virtual networks wants to access the provider networks it does
 so with the help of a special port type 'localnet'. For the localnet ports

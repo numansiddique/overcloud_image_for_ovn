@@ -1,0 +1,52 @@
+From de842255f844243b6a46b079a454d1cc772d68e9 Mon Sep 17 00:00:00 2001
+From: Numan Siddique <nusiddiq@redhat.com>
+Date: Thu, 8 Dec 2016 20:57:38 +0530
+Subject: [PATCH 3/3] Pass the inactivity interval params
+
+OVN SB and DB servers can be configured with inactivity probe
+interval. This patch passes these values in the OVN_NORTHD_OPTS.
+
+Signed-off-by: Numan Siddique <nusiddiq@redhat.com>
+---
+ manifests/northd.pp | 18 ++++++++++++++++--
+ 1 file changed, 16 insertions(+), 2 deletions(-)
+
+diff --git a/manifests/northd.pp b/manifests/northd.pp
+index 44d0c2b..4d6691f 100644
+--- a/manifests/northd.pp
++++ b/manifests/northd.pp
+@@ -7,7 +7,19 @@
+ #   The IP-Address where OVN DBs should be listening
+ #   Defaults to '0.0.0.0'
+ #
+-class ovn::northd($dbs_listen_ip = '0.0.0.0') {
++# [*ovn_northbound_inactivity_probe*]
++#   (optional) Inactivity probe interval in msec for the northbound db
++#   Defaults to hiera('ovn::northd::ovn_northbound_inactivity_probe')
++#
++# [*ovn_southbound_inactivity_probe*]
++#   (optional) Inactivity probe interval in msec for the southbound db
++#   Defaults to hiera('ovn::northd::ovn_southbound_inactivity_probe')
++#
++class ovn::northd(
++  $dbs_listen_ip = '0.0.0.0',
++  $ovn_northbound_inactivity_probe = hiera('ovn::northd::ovn_northbound_inactivity_probe'),
++  $ovn_southbound_inactivity_probe = hiera('ovn::northd::ovn_southbound_inactivity_probe')
++) {
+     include ::ovn::params
+     if $::osfamily == 'RedHat' {
+       file { '/etc/sysconfig/ovn-northd':
+@@ -15,7 +27,9 @@ class ovn::northd($dbs_listen_ip = '0.0.0.0') {
+         mode    => '0600',
+         owner   => 'root',
+         group   => 'root',
+-        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip}",
++        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip} \
++                    --db-nb-inactivity-probe=${ovn_northbound_inactivity_probe} \
++                    --db-sb-inactivity-probe=${ovn_southbound_inactivity_probe}",
+         before  => Service['northd']
+       }
+     }
+-- 
+2.9.3
+
