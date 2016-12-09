@@ -294,6 +294,7 @@ apply_ovn_patches_in_oc_image() {
     fi
 
     # Clone the networking-ovn and apply the patches
+    rm -rf networking-ovn
     git clone https://github.com/openstack/networking-ovn networking-ovn
     rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/*
     cp -rf networking-ovn/networking_ovn/* $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/
