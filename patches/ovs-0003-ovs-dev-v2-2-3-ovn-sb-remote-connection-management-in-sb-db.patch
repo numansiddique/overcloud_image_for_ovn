@@ -1,7 +1,13 @@
-From 31e0865e11a14c67db977fde9f6002fc821f74ea Mon Sep 17 00:00:00 2001
+From patchwork Thu Dec  8 18:12:24 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [ovs-dev,v2,2/3] ovn-sb: remote connection management in sb db
 From: Lance Richardson <lrichard@redhat.com>
-Date: Thu, 1 Dec 2016 10:37:16 -0500
-Subject: [PATCH 2/4] ovn-sb: remote connection management in sb db
+X-Patchwork-Id: 704169
+Message-Id: <1481220745-13515-3-git-send-email-lrichard@redhat.com>
+To: dev@openvswitch.org, blp@ovn.org, russell@ovn.org, nusiddiq@redhat.com
+Date: Thu,  8 Dec 2016 13:12:24 -0500
 
 Add support for managing remote connections, including
 SSL configuration, to southbound db schema, and add necessary
@@ -616,6 +622,3 @@ index 28d4972..79ead32 100644
  AT_SETUP([ovn -- nested containers])
  ovn_start
  
--- 
-2.9.3
-

@@ -1,7 +1,13 @@
-From 8e258530d81ebae7ae1bd30b9db9bf643cbce768 Mon Sep 17 00:00:00 2001
+From patchwork Thu Dec  8 18:12:25 2016
+Content-Type: text/plain; charset="utf-8"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Subject: [ovs-dev,v2,3/3] ovn-ctl: add support for SSL nb/sb db connections
 From: Lance Richardson <lrichard@redhat.com>
-Date: Thu, 1 Dec 2016 10:37:23 -0500
-Subject: [PATCH 3/4] ovn-ctl: add support for SSL nb/sb db connections
+X-Patchwork-Id: 704170
+Message-Id: <1481220745-13515-4-git-send-email-lrichard@redhat.com>
+To: dev@openvswitch.org, blp@ovn.org, russell@ovn.org, nusiddiq@redhat.com
+Date: Thu,  8 Dec 2016 13:12:25 -0500
 
 Add support for SSL connections to OVN northbound and/or
 southbound databases.
@@ -14,8 +20,8 @@ a passive TCP connection be used via ovn-ctl command-line
 options (e.g. via OVN_CTL_OPTS/OVN_NORTHD_OPTS in startup
 scripts):
 
-    --db-sb-default-remote=yes
-    --db-nb-default-remote=yes
+    --db-sb-create-remote=yes
+    --db-nb-create-remote=yes
 
 Or configure a connection after the NB/SB daemons have been
 started, e.g.:
@@ -46,16 +52,18 @@ The SB database connection should also be configured to use SSL, e.g.:
     ovs-vsctl set Open_vSwitch . \
               external-ids:ovn-remote=ssl:w.x.y.z:6642
 
+Co-authored-by: Numan Siddique <numans@redhat.com>
+Signed-off-by: Numan Siddique <numans@redhat.com>
 Signed-off-by: Lance Richardson <lrichard@redhat.com>
 ---
- NEWS                        |  5 ++++
- manpages.mk                 |  4 +++
- ovn/utilities/ovn-ctl       | 72 ++++++++++++++++++++++++++++++++++-----------
- ovn/utilities/ovn-ctl.8.xml |  7 +++++
- 4 files changed, 71 insertions(+), 17 deletions(-)
+ NEWS                        |   5 +++
+ manpages.mk                 |   4 ++
+ ovn/utilities/ovn-ctl       | 106 +++++++++++++++++++++++++++++++++++++-------
+ ovn/utilities/ovn-ctl.8.xml |   7 +++
+ 4 files changed, 105 insertions(+), 17 deletions(-)
 
 diff --git a/NEWS b/NEWS
-index 3a33abf..9ac8808 100644
+index 3a33abf..0f640bd 100644
 --- a/NEWS
 +++ b/NEWS
 @@ -9,6 +9,11 @@ Post-v2.6.0
@@ -65,7 +73,7 @@ index 3a33abf..9ac8808 100644
 +     * TCP connections to northbound and southbound databases are no
 +       longer enabled by default and must be explicitly configured.
 +       See documentation for ovn-sbctl/ovn-nbctl "set-connection" command
-+       or ovn-ctl "--db-sb-default-remote"/"--db-nb-default-remote"
++       or ovn-ctl "--db-sb-create-remote"/"--db-nb-create-remote"
 +       options for information regarding enabling TCP connections.
     - Fixed regression in table stats maintenance introduced in OVS
       2.3.0, wherein the number of OpenFlow table hits and misses was
@@ -93,7 +101,7 @@ index 11ec023..742bd66 100644
  
  ovsdb/ovsdb-client.1: \
 diff --git a/ovn/utilities/ovn-ctl b/ovn/utilities/ovn-ctl
-index 73e78e5..4dade90 100755
+index 73e78e5..f4526fd 100755
 --- a/ovn/utilities/ovn-ctl
 +++ b/ovn/utilities/ovn-ctl
 @@ -50,7 +50,7 @@ stop_ovsdb () {
@@ -114,7 +122,7 @@ index 73e78e5..4dade90 100755
      fi
  
      if test -e $ovnsb_active_conf_file; then
-@@ -93,15 +93,21 @@ start_ovsdb () {
+@@ -93,15 +93,17 @@ start_ovsdb () {
  
          set ovsdb-server
  
@@ -132,10 +140,6 @@ index 73e78e5..4dade90 100755
 +        set "$@" --private-key=db:OVN_Northbound,SSL,private_key
 +        set "$@" --certificate=db:OVN_Northbound,SSL,certificate
 +        set "$@" --ca-cert=db:OVN_Northbound,SSL,ca_cert
-+
-+        if test X"$DB_NB_DEFAULT_REMOTE" = Xyes; then
-+            set "$@" --remote=ptcp:$DB_NB_PORT:$DB_NB_ADDR
-+        fi
  
          if test ! -z "$DB_NB_SYNC_FROM_ADDR"; then
 -            echo "tcp:$DB_NB_SYNC_FROM_ADDR:$DB_NB_SYNC_FROM_PORT" > $ovnnb_active_conf_file
@@ -143,7 +147,33 @@ index 73e78e5..4dade90 100755
          fi
  
          if test -e $ovnnb_active_conf_file; then
-@@ -118,15 +124,21 @@ start_ovsdb () {
+@@ -110,6 +112,25 @@ start_ovsdb () {
+ 
+         $@ $DB_NB_FILE
+         ovn-nbctl init
++
++        if test X"$DB_NB_CREATE_REMOTE" = Xyes; then
++            conn_info=$(ovn-nbctl  find Connection target="ptcp\:$DB_NB_PORT\:$DB_NB_ADDR")
++            conn_uuid=$(echo $conn_info | awk '{print $3'})
++
++            # Create remote with default configuration if requested. Note that
++            # this configuration is persistent and will not be removed
++            # automatically if the value of DB_NB_CREATE_REMOTE is changed to
++            # "no".
++            if test X"$conn_uuid" = X; then
++                ovn-nbctl set-connection "ptcp:$DB_NB_PORT:$DB_NB_ADDR"
++                conn_info=$(ovn-nbctl  find Connection target="ptcp\:$DB_NB_PORT\:$DB_NB_ADDR")
++                conn_uuid=$(echo $conn_info | awk '{print $3'})
++            fi
++
++            if test X"$DB_NB_INACTIVITY_PROBE" != X; then
++                ovn-nbctl set Connection $conn_uuid inactivity_probe=$DB_NB_INACTIVITY_PROBE
++            fi
++        fi
+     fi
+ 
+     # Check and eventually start ovsdb-server for Southbound DB
+@@ -118,15 +139,17 @@ start_ovsdb () {
  
          set ovsdb-server
  
@@ -161,10 +191,6 @@ index 73e78e5..4dade90 100755
 +        set "$@" --private-key=db:OVN_Southbound,SSL,private_key
 +        set "$@" --certificate=db:OVN_Southbound,SSL,certificate
 +        set "$@" --ca-cert=db:OVN_Southbound,SSL,ca_cert
-+
-+        if test X"$DB_NB_DEFAULT_REMOTE" = Xyes; then
-+            set "$@" --remote=ptcp:$DB_SB_PORT:$DB_SB_ADDR
-+        fi
  
          if test ! -z "$DB_SB_SYNC_FROM_ADDR"; then
 -            echo "tcp:$DB_SB_SYNC_FROM_ADDR:$DB_SB_SYNC_FROM_PORT" > $ovnsb_active_conf_file
@@ -172,7 +198,33 @@ index 73e78e5..4dade90 100755
          fi
  
          if test -e $ovnsb_active_conf_file; then
-@@ -208,12 +220,22 @@ start_northd () {
+@@ -135,6 +158,25 @@ start_ovsdb () {
+ 
+         $@ $DB_SB_FILE
+         ovn-sbctl init
++
++        if test X"$DB_SB_CREATE_REMOTE" = Xyes; then
++            conn_info=$(ovn-sbctl  find Connection target="ptcp\:$DB_SB_PORT\:$DB_SB_ADDR")
++            conn_uuid=$(echo $conn_info | awk '{print $3'})
++
++            # Create remote with default configuration if requested. Note that
++            # this configuration is persistent and will not be removed
++            # automatically if the value of DB_SB_CREATE_REMOTE is changed to
++            # "no".
++            if test X"$conn_uuid" = X; then
++                ovn-sbctl set-connection "ptcp:$DB_SB_PORT:$DB_SB_ADDR"
++                conn_info=$(ovn-sbctl  find Connection target="ptcp\:$DB_SB_PORT\:$DB_SB_ADDR")
++                conn_uuid=$(echo $conn_info | awk '{print $3'})
++            fi
++
++            if test X"$DB_SB_INACTIVITY_PROBE" != X; then
++                ovn-sbctl set Connection $conn_uuid inactivity_probe=$DB_SB_INACTIVITY_PROBE
++            fi
++        fi
+     fi
+ }
+ 
+@@ -208,12 +250,22 @@ start_northd () {
  start_controller () {
      set ovn-controller "unix:$DB_SOCK"
      set "$@" $OVN_CONTROLLER_LOG
@@ -195,7 +247,7 @@ index 73e78e5..4dade90 100755
      OVS_RUNDIR=${OVN_RUNDIR} start_daemon "$OVN_CONTROLLER_PRIORITY" "$OVN_CONTROLLER_WRAPPER" "$@"
  }
  
-@@ -275,6 +297,7 @@ set_defaults () {
+@@ -275,6 +327,7 @@ set_defaults () {
      DB_NB_FILE=$dbdir/ovnnb_db.db
      DB_NB_ADDR=0.0.0.0
      DB_NB_PORT=6641
@@ -203,7 +255,7 @@ index 73e78e5..4dade90 100755
      DB_NB_SYNC_FROM_ADDR=
      DB_NB_SYNC_FROM_PORT=6641
  
-@@ -283,6 +306,7 @@ set_defaults () {
+@@ -283,6 +336,7 @@ set_defaults () {
      DB_SB_FILE=$dbdir/ovnsb_db.db
      DB_SB_ADDR=0.0.0.0
      DB_SB_PORT=6642
@@ -211,7 +263,7 @@ index 73e78e5..4dade90 100755
      DB_SB_SYNC_FROM_ADDR=
      DB_SB_SYNC_FROM_PORT=6642
  
-@@ -307,6 +331,13 @@ set_defaults () {
+@@ -307,6 +361,15 @@ set_defaults () {
      OVN_SB_LOG="-vconsole:off"
      OVN_NB_LOGFILE="$logdir/ovsdb-server-nb.log"
      OVN_SB_LOGFILE="$logdir/ovsdb-server-sb.log"
@@ -220,12 +272,14 @@ index 73e78e5..4dade90 100755
 +    OVN_CONTROLLER_SSL_CERT=""
 +    OVN_CONTROLLER_SSL_CA_CERT=""
 +
-+    DB_SB_DEFAULT_REMOTE="no"
-+    DB_NB_DEFAULT_REMOTE="no"
++    DB_SB_CREATE_REMOTE="no"
++    DB_NB_CREATE_REMOTE="no"
++    DB_NB_INACTIVITY_PROBE=""
++    DB_SB_INACTIVITY_PROBE=""
  }
  
  set_option () {
-@@ -350,6 +381,9 @@ Options:
+@@ -350,6 +413,9 @@ Options:
    --ovn-northd-wrapper=WRAPPER   run with a wrapper like valgrind for debugging
    --ovn-controller-priority=NICE     set ovn-northd's niceness (default: $OVN_CONTROLLER_PRIORITY)
    --ovn-controller-wrapper=WRAPPER   run with a wrapper like valgrind for debugging
@@ -235,18 +289,20 @@ index 73e78e5..4dade90 100755
    --ovn-manage-ovsdb=yes|no        Whether or not the OVN databases should be
                                     automatically started and stopped along
                                     with ovn-northd. The default is "yes". If
-@@ -376,9 +410,13 @@ File location options:
+@@ -376,9 +442,15 @@ File location options:
    --ovn-nb-logfile=FILE OVN Northbound log file (default: $OVN_NB_LOGFILE)
    --ovn-sb-logfile=FILE OVN Southbound log file (default: $OVN_SB_LOGFILE)
    --db-nb-sync-from-addr=ADDR OVN Northbound active db tcp address (default: $DB_NB_SYNC_FROM_ADDR)
 -  --db-nb-sync-from-port=PORT OVN Northdbound active db tcp port (default: $DB_NB_SYNC_FROM_PORT)
 +  --db-nb-sync-from-port=PORT OVN Northbound active db tcp port (default: $DB_NB_SYNC_FROM_PORT)
 +  --db-nb-sync-from-proto=PROTO OVN Northbound active db transport (default: $DB_NB_SYNC_FROM_PROTO)
-+  --db-nb-default-remote=yes|no Use OVN Northbound default remote connection (default: $DB_NB_DEFAULT_REMOTE)
++  --db-nb-create-remote=yes|no Create OVN Northbound remote (default: $DB_NB_CREATE_REMOTE)
++  --db-nb-inactivity-probe=TIME Set inactivity probe (in msec) for NB remote (default:$DB_NB_INACTIVITY_PROBE)
    --db-sb-sync-from-addr=ADDR OVN Southbound active db tcp address (default: $DB_SB_SYNC_FROM_ADDR)
    --db-sb-sync-from-port=ADDR OVN Southbound active db tcp port (default: $DB_SB_SYNC_FROM_PORT)
 +  --db-sb-sync-from-proto=PROTO OVN Southbound active db transport (default: $DB_SB_SYNC_FROM_PROTO)
-+  --db-sb-default-remote=yes|no Use OVN Southbound default remote connection (default: $DB_SB_DEFAULT_REMOTE)
++  --db-sb-create-remote=yes|no Create OVN Southbound remote (default: $DB_SB_CREATE_REMOTE)
++  --db-sb-inactivity-probe=TIME Set inactivity probe (in msec) for SB remote (default: $DB_SB_INACTIVITY_PROBE)
  
  Default directories with "configure" option and environment variable override:
    logs: /usr/local/var/log/openvswitch (--with-logdir, OVS_LOGDIR)
@@ -274,6 +330,3 @@ index ff7366c..f329f74 100644
  
      <h1>Configuration files</h1>
      <p>Following are the optional configuration files. If present, it should be located in the etc dir</p>
--- 
-2.9.3
-
