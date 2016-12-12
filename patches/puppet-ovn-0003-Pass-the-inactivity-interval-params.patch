@@ -1,4 +1,4 @@
-From de842255f844243b6a46b079a454d1cc772d68e9 Mon Sep 17 00:00:00 2001
+From 6c6379d6d48ecfeec98917eda7f6e84e2fdee53d Mon Sep 17 00:00:00 2001
 From: Numan Siddique <nusiddiq@redhat.com>
 Date: Thu, 8 Dec 2016 20:57:38 +0530
 Subject: [PATCH 3/3] Pass the inactivity interval params
@@ -8,11 +8,11 @@ interval. This patch passes these values in the OVN_NORTHD_OPTS.
 
 Signed-off-by: Numan Siddique <nusiddiq@redhat.com>
 ---
- manifests/northd.pp | 18 ++++++++++++++++--
- 1 file changed, 16 insertions(+), 2 deletions(-)
+ manifests/northd.pp | 16 ++++++++++++++--
+ 1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/manifests/northd.pp b/manifests/northd.pp
-index 44d0c2b..4d6691f 100644
+index 44d0c2b..dda55eb 100644
 --- a/manifests/northd.pp
 +++ b/manifests/northd.pp
 @@ -7,7 +7,19 @@
@@ -36,14 +36,12 @@ index 44d0c2b..4d6691f 100644
      include ::ovn::params
      if $::osfamily == 'RedHat' {
        file { '/etc/sysconfig/ovn-northd':
-@@ -15,7 +27,9 @@ class ovn::northd($dbs_listen_ip = '0.0.0.0') {
+@@ -15,7 +27,7 @@ class ovn::northd($dbs_listen_ip = '0.0.0.0') {
          mode    => '0600',
          owner   => 'root',
          group   => 'root',
 -        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip}",
-+        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip} \
-+                    --db-nb-inactivity-probe=${ovn_northbound_inactivity_probe} \
-+                    --db-sb-inactivity-probe=${ovn_southbound_inactivity_probe}",
++        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip} --db-nb-create-remote=yes --db-sb-create-remote=yes --db-nb-inactivity-probe=${ovn_northbound_inactivity_probe} --db-sb-inactivity-probe=${ovn_southbound_inactivity_probe}",
          before  => Service['northd']
        }
      }
