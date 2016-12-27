@@ -1,7 +1,7 @@
-From f88451c886a6f38a30befeebdeeedc148797f6a7 Mon Sep 17 00:00:00 2001
+From ea6da0f05117605fb5a0ffbac7116f6e20875421 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Tue, 15 Nov 2016 11:42:12 +0000
-Subject: [PATCH 2/2] OVN plugin configuration fixes
+Subject: [PATCH 1/3] OVN plugin configuration fixes
 
 This patch renames certain ovn plugin and controller configuration
 parameters as well as adds some additional ml2 configuration parameters.
@@ -9,13 +9,13 @@ It also disables the need for the neutron metadata agent.
 
 Change-Id: Idc9e7ef4a1b88013bca3eac3c136e4710e38a5c0
 ---
- environments/neutron-ml2-ovn.yaml               |  7 ++++++-
- puppet/services/neutron-compute-plugin-ovn.yaml |  6 +-----
- puppet/services/neutron-plugin-ml2-ovn.yaml     | 18 ++++++++++++++----
- 3 files changed, 21 insertions(+), 10 deletions(-)
+ environments/neutron-ml2-ovn.yaml               |  8 +++++---
+ puppet/services/neutron-compute-plugin-ovn.yaml | 10 +++++-----
+ puppet/services/neutron-plugin-ml2-ovn.yaml     | 20 +++++++++++++++-----
+ 3 files changed, 25 insertions(+), 13 deletions(-)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index 3da560c..1ec75af 100644
+index 3da560c..7b6baec 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
 @@ -3,6 +3,7 @@
@@ -26,12 +26,13 @@ index 3da560c..1ec75af 100644
    OS::TripleO::Services::NeutronCorePlugin: OS::TripleO::Services::NeutronCorePluginML2OVN
    OS::TripleO::Services::ComputeNeutronCorePlugin: ../puppet/services/neutron-compute-plugin-ovn.yaml
  # Disabling Neutron services that overlap with OVN
-@@ -14,9 +15,13 @@ parameter_defaults:
+@@ -12,11 +13,12 @@ resource_registry:
+ 
+ parameter_defaults:
    NeutronMechanismDrivers: ovn
-   OVNSouthboundServerPort: 6642
-   OVNNorthboundServerPort: 6641
+-  OVNSouthboundServerPort: 6642
+-  OVNNorthboundServerPort: 6641
 -  OVNDbConnectionTimeout: 60
-+  OVNDbConnectionTimeout: 180
    OVNVifType: ovs
    OVNNeutronSyncMode: log
    OVNQosDriver: ovn-qos
@@ -42,7 +43,7 @@ index 3da560c..1ec75af 100644
 +  NeutronServicePlugins: 'qos,networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
 +  NeutronVniRanges: ['1:65536', ]
 diff --git a/puppet/services/neutron-compute-plugin-ovn.yaml b/puppet/services/neutron-compute-plugin-ovn.yaml
-index 95e05dd..66cec95 100644
+index 95e05dd..1e335f5 100644
 --- a/puppet/services/neutron-compute-plugin-ovn.yaml
 +++ b/puppet/services/neutron-compute-plugin-ovn.yaml
 @@ -18,9 +18,6 @@ parameters:
@@ -55,7 +56,7 @@ index 95e05dd..66cec95 100644
    OVNSouthboundServerPort:
      description: Port of the Southbound DB Server
      type: number
-@@ -37,9 +34,8 @@ outputs:
+@@ -37,9 +34,12 @@ outputs:
      value:
        service_name: neutron_compute_plugin_ovn
        config_settings:
@@ -64,13 +65,17 @@ index 95e05dd..66cec95 100644
 -        ovn::southbound::encap_type: {get_param: OVNTunnelEncapType}
 +        ovn::controller::ovn_encap_type: {get_param: OVNTunnelEncapType}
          ovn::controller::ovn_encap_ip: {get_param: [ServiceNetMap, NeutronApiNetwork]}
++        tripleo.neutron_compute_plugin_ovn.firewall_rules:
++          '118 neutron geneve networks':
++            proto: 'udp'
++            dport: 6081
        step_config: |
          include ::tripleo::profile::base::neutron::agents::ovn
 diff --git a/puppet/services/neutron-plugin-ml2-ovn.yaml b/puppet/services/neutron-plugin-ml2-ovn.yaml
-index 20dfda6..b7aeff6 100644
+index 20dfda6..04eb434 100644
 --- a/puppet/services/neutron-plugin-ml2-ovn.yaml
 +++ b/puppet/services/neutron-plugin-ml2-ovn.yaml
-@@ -18,6 +18,10 @@ parameters:
+@@ -18,10 +18,14 @@ parameters:
      description: Mapping of service endpoint -> protocol. Typically set
                   via parameter_defaults in the resource registry.
      type: json
@@ -81,6 +86,11 @@ index 20dfda6..b7aeff6 100644
    OVNDbConnectionTimeout:
      description: Timeout in seconds for the OVSDB connection transaction
      type: number
+-    default: 60
++    default: 180
+   OVNVifType:
+     description: Type of VIF to be used for ports
+     type: string
 @@ -43,6 +47,10 @@ parameters:
      description: OVN notification driver for Neutron QOS service plugin
      type: string

@@ -1,7 +1,7 @@
-From 34aba4f12d47866c7edb283d3b57d26cbe133668 Mon Sep 17 00:00:00 2001
+From 55dfdcff6cf6dcd62eb2ca0d54df620f25417fa4 Mon Sep 17 00:00:00 2001
 From: Numan Siddique <nusiddiq@redhat.com>
 Date: Thu, 8 Dec 2016 21:03:09 +0530
-Subject: [PATCH] Setting inactivity probes for OVN NB and DB servers
+Subject: [PATCH 3/3] Setting inactivity probes for OVN NB and DB servers
 
 This patch adds additional configuration setting for to set
 inactivtiy probe intervals for OVN NB and DB servers
@@ -13,10 +13,10 @@ Change-Id: I01fa4fff4b06417247c968eeb34148ecc92bc6bb
  2 files changed, 18 insertions(+)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index ec51239..fde4590 100644
+index fac8da1..07cef9f 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
-@@ -26,3 +26,5 @@ parameter_defaults:
+@@ -23,3 +23,5 @@ parameter_defaults:
    NeutronServicePlugins: 'qos,networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
    NeutronVniRanges: ['1:65536', ]
    OVNBridgeMappings: 'datacentre:br-ex'

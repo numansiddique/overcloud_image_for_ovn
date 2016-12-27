@@ -1,4 +1,4 @@
-From 6c6379d6d48ecfeec98917eda7f6e84e2fdee53d Mon Sep 17 00:00:00 2001
+From f86d8ca318b449fc83ba8a5e39e5e73847f7d158 Mon Sep 17 00:00:00 2001
 From: Numan Siddique <nusiddiq@redhat.com>
 Date: Thu, 8 Dec 2016 20:57:38 +0530
 Subject: [PATCH 3/3] Pass the inactivity interval params
@@ -12,7 +12,7 @@ Signed-off-by: Numan Siddique <nusiddiq@redhat.com>
  1 file changed, 14 insertions(+), 2 deletions(-)
 
 diff --git a/manifests/northd.pp b/manifests/northd.pp
-index 44d0c2b..dda55eb 100644
+index 44d0c2b..78c9d59 100644
 --- a/manifests/northd.pp
 +++ b/manifests/northd.pp
 @@ -7,7 +7,19 @@
@@ -41,7 +41,7 @@ index 44d0c2b..dda55eb 100644
          owner   => 'root',
          group   => 'root',
 -        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip}",
-+        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip} --db-nb-create-remote=yes --db-sb-create-remote=yes --db-nb-inactivity-probe=${ovn_northbound_inactivity_probe} --db-sb-inactivity-probe=${ovn_southbound_inactivity_probe}",
++        content => "OVN_NORTHD_OPTS=--db-nb-addr=${dbs_listen_ip} --db-sb-addr=${dbs_listen_ip} --db-nb-create-insecure-remote=yes --db-sb-create-insecure-remote=yes --db-nb-inactivity-probe=${ovn_northbound_inactivity_probe} --db-sb-inactivity-probe=${ovn_southbound_inactivity_probe}",
          before  => Service['northd']
        }
      }

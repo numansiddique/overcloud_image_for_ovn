@@ -52,6 +52,7 @@ OVN_IMAGE_PATH=${OVN_IMAGE_PATH:-$PWD}
 
 # Whether to build rpm packages for ovs or get it from repo
 BUILD_OVS_RPM=$(trueorfalse True BUILD_OVS_RPM)
+BUILD_OVS_KERNEL_RPM=$(trueorfalse False BUILD_OVS_RPM)
 
 # The OVS repo file path
 OVS_REPO_PATH=${OVS_REPO_PATH:-https://copr.fedorainfracloud.org/coprs/leifmadsen/ovs-master/repo/epel-7/leifmadsen-ovs-master-epel-7.repo}
@@ -167,21 +168,14 @@ get_kernel_version_of_oc_image() {
 }
 
 generate_ovs_rpms_and_install_in_oc_image() {
-    # First get the kernel version of the overcloud image
-    get_kernel_version_of_oc_image
-    log_print "Kernel version of overcloud image is $OC_KER_VERSION"
-    if [[ "$OC_KER_VERSION" == "" ]]; then
-        log_print "Couldn't get the kernel version from overcloud image. Using the host kernel version"
-        OC_KER_VERSION=`uname -a | cut -d " " -f3`
-    fi
     rm -rf $OVN_IMAGE_PATH/ovs
     git clone https://github.com/openvswitch/ovs.git
-    yum install -y autoconf automake rpm-build libtool kernel-devel kernel-devel-$OC_KER_VERSION
+    yum install -y autoconf automake rpm-build libtool kernel-devel
     yum install -y openssl-devel desktop-file-utils
     yum install -y groff graphviz selinux-policy-devel libcap-ng-devel
     cd $OVN_IMAGE_PATH/ovs
     ./boot.sh
-    ./configure --with-linux=/lib/modules/`uname -r`/build
+    ./configure
     # Apply ovs patches if any
     ovs_patches=`ls $RUN_DIR/patches/ovs-*.patch`
     for i in $ovs_patches
@@ -189,19 +183,29 @@ generate_ovs_rpms_and_install_in_oc_image() {
         git am $i
     done
     make rpm-fedora RPMBUILD_OPT="--without check"
-    export OC_KER_VERSION=$OC_KER_VERSION
-    make rpm-fedora-kmod RPMBUILD_OPT='-D "kversion ${OC_KER_VERSION}"'
+    
+    if [[ "$BUILD_OVS_KERNEL_RPM" == "True" ]]; then
+        get_kernel_version_of_oc_image
+        log_print "Kernel version of overcloud image is $OC_KER_VERSION"
+        if [[ "$OC_KER_VERSION" == "" ]]; then
+            log_print "Couldn't get the kernel version from overcloud image. Using the host kernel version"
+            OC_KER_VERSION=`uname -a | cut -d " " -f3`
+        fi
+        export OC_KER_VERSION=$OC_KER_VERSION
+        yum install -y kernel-devel-$OC_KER_VERSION
+        make rpm-fedora-kmod RPMBUILD_OPT='-D "kversion ${OC_KER_VERSION}"'
+    fi
+
     cd $OVN_IMAGE_PATH
     cat << EOF > $OVN_IMAGE_PATH/oc_install_packages.sh
 #!/bin/bash
 sudo yum remove -y openvswitch
-sudo yum remove -y python-openvswitch
-sudo rpm -ihv /home/openvswitch-2*x86_64.rpm
-sudo rpm -ihv /home/openvswitch-ovn-common-2*x86_64.rpm
-sudo rpm -ihv /home/openvswitch-ovn-central-2*x86_64.rpm
-sudo rpm -ihv /home/openvswitch-ovn-host-2*x86_64.rpm
-sudo rpm -ihv /home/openvswitch-kmod-2*x86_64.rpm
-sudo rpm -ihv /home/python-openvswitch*.rpm
+sudo yum install -y /home/openvswitch-2*x86_64.rpm
+sudo yum install -y /home/openvswitch-ovn-common-2*x86_64.rpm
+sudo yum install -y /home/openvswitch-ovn-central-2*x86_64.rpm
+sudo yum install -y /home/openvswitch-ovn-host-2*x86_64.rpm
+sudo yum install -y /home/openvswitch-kmod-2*x86_64.rpm
+sudo yum reinstall -y /home/python-openvswitch*.rpm
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
 sudo yum install -y openstack-neutron-openvswitch
@@ -213,17 +217,18 @@ EOF
     cp $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/RPMS/x86_64/*.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
     cp $OVN_IMAGE_PATH/oc_install_packages.sh $TMP_OC_IMAGE_MOUNT_PATH/home/
     chmod 0755 $TMP_OC_IMAGE_MOUNT_PATH/home/oc_install_packages.sh
+    cp $OVN_IMAGE_PATH/rpms/python-openvswitch-2.6.90-1.el7.centos.x86_64.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
     guestunmount $TMP_OC_IMAGE_MOUNT_PATH
 
     # Build the python-openvswitch package with native C json parser implementation.
-    rm -rf $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/
-    cd $OVN_IMAGE_PATH/ovs
-    make rpm-fedora-python-ovs
-    cd $OVN_IMAGE_PATH
-    mount_oc_image
-    log_print "Copying the python-openvswitch RPM to the overcloud image"
-    cp $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/RPMS/x86_64/*.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
-    guestunmount $TMP_OC_IMAGE_MOUNT_PATH
+    # rm -rf $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/
+    # cd $OVN_IMAGE_PATH/ovs
+    # make rpm-fedora-python-ovs
+    # cd $OVN_IMAGE_PATH
+    # mount_oc_image
+    # log_print "Copying the python-openvswitch RPM to the overcloud image"
+    # cp $OVN_IMAGE_PATH/ovs/rpm/rpmbuild/RPMS/x86_64/*.rpm $TMP_OC_IMAGE_MOUNT_PATH/home/
+    # guestunmount $TMP_OC_IMAGE_MOUNT_PATH
     rm -f $OVN_IMAGE_PATH/oc_install_packages.sh
     log_print "Installing the required packages for OVN"
     run_command_in_oc_image "sudo /home/oc_install_packages.sh"
@@ -294,10 +299,10 @@ apply_ovn_patches_in_oc_image() {
     fi
 
     # Clone the networking-ovn and apply the patches
-    rm -rf networking-ovn
-    git clone https://github.com/openstack/networking-ovn networking-ovn
-    rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/*
-    cp -rf networking-ovn/networking_ovn/* $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/
+    # rm -rf networking-ovn
+    # git clone https://github.com/openstack/networking-ovn networking-ovn
+    # rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/*
+    # cp -rf networking-ovn/networking_ovn/* $TMP_OC_IMAGE_MOUNT_PATH/usr/lib/python2.7/site-packages/networking_ovn/
 
     # Cope the delorean-head repo to the oc image
     cp $OVN_IMAGE_PATH/delorean-head.repo  $TMP_OC_IMAGE_MOUNT_PATH/etc/yum.repos.d/
