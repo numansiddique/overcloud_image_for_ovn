@@ -205,7 +205,7 @@ sudo yum install -y /home/openvswitch-ovn-common-2*x86_64.rpm
 sudo yum install -y /home/openvswitch-ovn-central-2*x86_64.rpm
 sudo yum install -y /home/openvswitch-ovn-host-2*x86_64.rpm
 sudo yum install -y /home/openvswitch-kmod-2*x86_64.rpm
-sudo yum reinstall -y /home/python-openvswitch*.rpm
+sudo yum update -y /home/python-openvswitch*.rpm
 sudo yum install -y python-networking-ovn
 sudo yum install -y indent
 sudo yum install -y openstack-neutron-openvswitch
@@ -289,7 +289,7 @@ apply_ovn_patches_in_oc_image() {
         rm -f $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/ovn/.gitreview
     fi
 
-    if [ "$puppet_ovn_patches" != "" ]; then
+    if [ "$puppet_tripleo_patches" != "" ]; then
         log_print "Copying the patched puppet-tripleo files to the oc image"
         rm -rf $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/tripleo
         cp -rf tripleo $TMP_OC_IMAGE_MOUNT_PATH/usr/share/openstack-puppet/modules/
