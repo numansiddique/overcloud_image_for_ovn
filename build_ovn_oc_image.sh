@@ -52,7 +52,7 @@ OVN_IMAGE_PATH=${OVN_IMAGE_PATH:-$PWD}
 
 # Whether to build rpm packages for ovs or get it from repo
 BUILD_OVS_RPM=$(trueorfalse True BUILD_OVS_RPM)
-BUILD_OVS_KERNEL_RPM=$(trueorfalse False BUILD_OVS_RPM)
+BUILD_OVS_KERNEL_RPM=$(trueorfalse False BUILD_OVS_KERNEL_RPM)
 
 # The OVS repo file path
 OVS_REPO_PATH=${OVS_REPO_PATH:-https://copr.fedorainfracloud.org/coprs/leifmadsen/ovs-master/repo/epel-7/leifmadsen-ovs-master-epel-7.repo}
@@ -183,7 +183,7 @@ generate_ovs_rpms_and_install_in_oc_image() {
         git am $i
     done
     make rpm-fedora RPMBUILD_OPT="--without check"
-    
+
     if [[ "$BUILD_OVS_KERNEL_RPM" == "True" ]]; then
         get_kernel_version_of_oc_image
         log_print "Kernel version of overcloud image is $OC_KER_VERSION"
