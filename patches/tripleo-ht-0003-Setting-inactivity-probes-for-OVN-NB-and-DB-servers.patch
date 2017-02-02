@@ -1,4 +1,4 @@
-From 55dfdcff6cf6dcd62eb2ca0d54df620f25417fa4 Mon Sep 17 00:00:00 2001
+From cf8e76ba19c2b5ba0b7efedcea2fe0761c423eb1 Mon Sep 17 00:00:00 2001
 From: Numan Siddique <nusiddiq@redhat.com>
 Date: Thu, 8 Dec 2016 21:03:09 +0530
 Subject: [PATCH 3/3] Setting inactivity probes for OVN NB and DB servers
@@ -13,17 +13,17 @@ Change-Id: I01fa4fff4b06417247c968eeb34148ecc92bc6bb
  2 files changed, 18 insertions(+)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index fac8da1..07cef9f 100644
+index 23e41a8..7453489 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
 @@ -23,3 +23,5 @@ parameter_defaults:
-   NeutronServicePlugins: 'qos,networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
+   NeutronServicePlugins: 'qos,ovn-router'
    NeutronVniRanges: ['1:65536', ]
    OVNBridgeMappings: 'datacentre:br-ex'
 +  OVNNorthboundInactivityProbe: 180000
 +  OVNSouthboundInactivityProbe: 180000
 diff --git a/puppet/services/ovn-dbs.yaml b/puppet/services/ovn-dbs.yaml
-index 302628d..5e8ed6f 100644
+index 7f81afd..b30ab8c 100644
 --- a/puppet/services/ovn-dbs.yaml
 +++ b/puppet/services/ovn-dbs.yaml
 @@ -26,6 +26,20 @@ parameters:

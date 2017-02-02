@@ -1,4 +1,4 @@
-From d5c5ab7d487be24a57739c02d61c74f1152d3099 Mon Sep 17 00:00:00 2001
+From 20157b8a4b93b4b882f0aae039f5ad77e3477721 Mon Sep 17 00:00:00 2001
 From: Babu Shanmugam <bschanmu@redhat.com>
 Date: Fri, 25 Nov 2016 04:52:35 +0000
 Subject: [PATCH 2/3] OVN bridge mappings for tripleo
@@ -13,16 +13,16 @@ Depends-On: Ia6d66fa954571328c0ac3542af17303def382c1a
  2 files changed, 10 insertions(+)
 
 diff --git a/environments/neutron-ml2-ovn.yaml b/environments/neutron-ml2-ovn.yaml
-index 7b6baec..fac8da1 100644
+index 4e70a50..23e41a8 100644
 --- a/environments/neutron-ml2-ovn.yaml
 +++ b/environments/neutron-ml2-ovn.yaml
 @@ -22,3 +22,4 @@ parameter_defaults:
    NeutronNetworkType: 'geneve'
-   NeutronServicePlugins: 'qos,networking_ovn.l3.l3_ovn.OVNL3RouterPlugin'
+   NeutronServicePlugins: 'qos,ovn-router'
    NeutronVniRanges: ['1:65536', ]
 +  OVNBridgeMappings: 'datacentre:br-ex'
 diff --git a/puppet/services/neutron-compute-plugin-ovn.yaml b/puppet/services/neutron-compute-plugin-ovn.yaml
-index 1e335f5..203d617 100644
+index f825b48..1a571e5 100644
 --- a/puppet/services/neutron-compute-plugin-ovn.yaml
 +++ b/puppet/services/neutron-compute-plugin-ovn.yaml
 @@ -26,6 +26,10 @@ parameters:
