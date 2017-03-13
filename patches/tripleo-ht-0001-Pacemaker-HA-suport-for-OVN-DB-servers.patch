@@ -1,0 +1,234 @@
+From 085795f493bfd3822d2cca3c8365b93c400d9677 Mon Sep 17 00:00:00 2001
+From: Numan Siddique <nusiddiq@redhat.com>
+Date: Fri, 17 Feb 2017 19:41:04 +0530
+Subject: [PATCH] Pacemaker HA suport for OVN DB servers
+
+This patch adds the templates required to enable the
+OVN DB servers to be started in master/slave mode in the
+pacemaker cluster.
+
+A virtual IP (ovn_dbs_vip) is created for this purpose.
+
+Co-authored-by: Babu Shanmugam (bschanmu@redhat.com)
+Depends-on: I9dc366002ef5919339961e5deebbf8aa815c73db
+Depends-On: I56f7e3280eda6fe3cc8dd677ad06b700ef504829
+Change-Id: I60c55abfc523973aa926d8a12ec77f198d885916
+Closes-bug: #1670564
+---
+ environments/network-isolation-no-tunneling.yaml |  1 +
+ environments/network-isolation-v6.yaml           |  1 +
+ environments/network-isolation.yaml              |  1 +
+ environments/neutron-ml2-ovn-ha.yaml             | 24 +++++++++++++
+ overcloud-resource-registry-puppet.j2.yaml       |  1 +
+ overcloud.j2.yaml                                | 18 ++++++++++
+ puppet/all-nodes-config.yaml                     |  5 +++
+ puppet/services/pacemaker/ovn-dbs.yaml           | 45 ++++++++++++++++++++++++
+ 8 files changed, 96 insertions(+)
+ create mode 100644 environments/neutron-ml2-ovn-ha.yaml
+ create mode 100644 puppet/services/pacemaker/ovn-dbs.yaml
+
+diff --git a/environments/network-isolation-no-tunneling.yaml b/environments/network-isolation-no-tunneling.yaml
+index ff1d788..77a9574 100644
+--- a/environments/network-isolation-no-tunneling.yaml
++++ b/environments/network-isolation-no-tunneling.yaml
+@@ -19,6 +19,7 @@ resource_registry:
+   OS::TripleO::Network::Ports::StorageVipPort: ../network/ports/storage.yaml
+   OS::TripleO::Network::Ports::StorageMgmtVipPort: ../network/ports/storage_mgmt.yaml
+   OS::TripleO::Network::Ports::RedisVipPort: ../network/ports/vip.yaml
++  OS::TripleO::Network::Ports::OVNDbsVipPort: ../network/ports/vip.yaml
+ 
+   # Port assignments for the controller role
+   OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external.yaml
+diff --git a/environments/network-isolation-v6.yaml b/environments/network-isolation-v6.yaml
+index 11ca5b3..d7ddb39 100644
+--- a/environments/network-isolation-v6.yaml
++++ b/environments/network-isolation-v6.yaml
+@@ -15,6 +15,7 @@ resource_registry:
+   OS::TripleO::Network::Ports::StorageVipPort: ../network/ports/storage_v6.yaml
+   OS::TripleO::Network::Ports::StorageMgmtVipPort: ../network/ports/storage_mgmt_v6.yaml
+   OS::TripleO::Network::Ports::RedisVipPort: ../network/ports/vip_v6.yaml
++  OS::TripleO::Network::Ports::OVNDbsVipPort: ../network/ports/vip_v6.yaml
+ 
+   # Port assignments for the controller role
+   OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external_v6.yaml
+diff --git a/environments/network-isolation.yaml b/environments/network-isolation.yaml
+index a6b4b8a..f930225 100644
+--- a/environments/network-isolation.yaml
++++ b/environments/network-isolation.yaml
+@@ -17,6 +17,7 @@ resource_registry:
+   OS::TripleO::Network::Ports::StorageVipPort: ../network/ports/storage.yaml
+   OS::TripleO::Network::Ports::StorageMgmtVipPort: ../network/ports/storage_mgmt.yaml
+   OS::TripleO::Network::Ports::RedisVipPort: ../network/ports/vip.yaml
++  OS::TripleO::Network::Ports::OVNDbsVipPort: ../network/ports/vip.yaml
+ 
+   # Port assignments for the controller role
+   OS::TripleO::Controller::Ports::ExternalPort: ../network/ports/external.yaml
+diff --git a/environments/neutron-ml2-ovn-ha.yaml b/environments/neutron-ml2-ovn-ha.yaml
+new file mode 100644
+index 0000000..9d566ec
+--- /dev/null
++++ b/environments/neutron-ml2-ovn-ha.yaml
+@@ -0,0 +1,24 @@
++# A Heat environment file which can be used to enable OVN
++# extensions, configured via puppet
++resource_registry:
++  OS::TripleO::Services::NeutronL3Agent: OS::Heat::None
++  OS::TripleO::Services::NeutronOvsAgent: OS::Heat::None
++  OS::TripleO::Services::NeutronMetadataAgent: OS::Heat::None
++  OS::TripleO::Services::NeutronCorePlugin: OS::TripleO::Services::NeutronCorePluginML2OVN
++  OS::TripleO::Services::ComputeNeutronCorePlugin: ../puppet/services/neutron-compute-plugin-ovn.yaml
++# Disabling Neutron services that overlap with OVN
++  OS::TripleO::Services::NeutronDhcpAgent: OS::Heat::None
++  OS::TripleO::Services::ComputeNeutronOvsAgent: OS::Heat::None
++  OS::TripleO::Services::OVNDBs: ../puppet/services/pacemaker/ovn-dbs.yaml
++
++parameter_defaults:
++  NeutronMechanismDrivers: ovn
++  OVNVifType: ovs
++  OVNNeutronSyncMode: log
++  OVNQosDriver: ovn-qos
++  OVNTunnelEncapType: geneve
++  NeutronEnableDHCPAgent: false
++  NeutronTypeDrivers: 'geneve,vxlan,vlan,flat'
++  NeutronNetworkType: 'geneve'
++  NeutronServicePlugins: 'qos,ovn-router'
++  NeutronVniRanges: ['1:65536', ]
+diff --git a/overcloud-resource-registry-puppet.j2.yaml b/overcloud-resource-registry-puppet.j2.yaml
+index 212e937..e04869f 100644
+--- a/overcloud-resource-registry-puppet.j2.yaml
++++ b/overcloud-resource-registry-puppet.j2.yaml
+@@ -104,6 +104,7 @@ resource_registry:
+   OS::TripleO::Network::Ports::StorageMgmtVipPort: network/ports/noop.yaml
+   OS::TripleO::Network::Ports::RedisVipPort: network/ports/ctlplane_vip.yaml
+   OS::TripleO::Network::Ports::ControlPlaneVipPort: OS::Neutron::Port
++  OS::TripleO::Network::Ports::OVNDbsVipPort: network/ports/ctlplane_vip.yaml
+ 
+   # Service to network Mappings
+   OS::TripleO::ServiceNetMap: network/service_net_map.yaml
+diff --git a/overcloud.j2.yaml b/overcloud.j2.yaml
+index e99f770..17c8aeb 100644
+--- a/overcloud.j2.yaml
++++ b/overcloud.j2.yaml
+@@ -87,6 +87,12 @@ parameters:
+         Control the IP allocation for the virtual IP used by Redis. E.g.
+         [{'ip_address':'1.2.3.4'}]
+     type: json
++  OVNDbsVirtualFixedIPs:
++    default: []
++    description: >
++        Control the IP allocation for the virtual IP used by OVN databases. E.g.
++        [{'ip_address':'1.2.3.4'}]
++    type: json
+   CloudDomain:
+     default: 'localdomain'
+     type: string
+@@ -476,6 +482,7 @@ resources:
+       memcache_node_ips: {get_attr: [{{primary_role_name}}IpListMap, net_ip_map, {get_attr: [ServiceNetMap, service_net_map, MemcachedNetwork]}]}
+       NetVipMap: {get_attr: [VipMap, net_ip_map]}
+       RedisVirtualIP: {get_attr: [RedisVirtualIP, ip_address]}
++      OVNDbsVirtualIP: {get_attr: [OVNDbsVirtualIP, ip_address]}
+       ServiceNetMap: {get_attr: [ServiceNetMap, service_net_map_lower]}
+       DeployIdentifier: {get_param: DeployIdentifier}
+       UpdateIdentifier: {get_param: UpdateIdentifier}
+@@ -524,6 +531,17 @@ resources:
+       ServiceName: redis
+       FixedIPs: {get_param: RedisVirtualFixedIPs}
+ 
++  OVNDbsVirtualIP:
++    depends_on: Networks
++    type: OS::TripleO::Network::Ports::OVNDbsVipPort
++    properties:
++      ControlPlaneIP: {get_attr: [ControlVirtualIP, fixed_ips, 0, ip_address]}
++      ControlPlaneNetwork: {get_param: NeutronControlPlaneID}
++      PortName: ovndbs_virtual_ip
++      NetworkName: {get_attr: [ServiceNetMap, service_net_map, OvnDbsNetwork]}
++      ServiceName: ovn-dbs
++      FixedIPs: {get_param: OVNDbsVirtualFixedIPs}
++
+   # The public VIP is on the External net, falls back to ctlplane
+   PublicVirtualIP:
+     depends_on: Networks
+diff --git a/puppet/all-nodes-config.yaml b/puppet/all-nodes-config.yaml
+index 7edf17a..0c07552 100644
+--- a/puppet/all-nodes-config.yaml
++++ b/puppet/all-nodes-config.yaml
+@@ -39,6 +39,9 @@ parameters:
+   RedisVirtualIP:
+     type: string
+     default: ''
++  OVNDbsVirtualIP:
++    type: string
++    default: ''
+   ServiceNetMap:
+     type: json
+   DeployIdentifier:
+@@ -207,6 +210,7 @@ resources:
+                 storage_virtual_ip: {get_param: [NetVipMap, {get_param: StorageNetName}]}
+                 storage_mgmt_virtual_ip: {get_param: [NetVipMap, {get_param: StorageMgmtNetName}]}
+                 redis_vip: {get_param: RedisVirtualIP}
++                ovn_dbs_vip: {get_param: OVNDbsVirtualIP}
+                 # public_virtual_ip and controller_virtual_ip are needed in
+                 # both HAproxy & keepalived.
+                 tripleo::haproxy::public_virtual_ip: {get_param: [NetVipMap, {get_param: ExternalNetName}]}
+@@ -218,6 +222,7 @@ resources:
+                 tripleo::keepalived::storage_mgmt_virtual_ip: {get_param: [NetVipMap, {get_param: StorageMgmtNetName}]}
+                 tripleo::keepalived::redis_virtual_ip: {get_param: RedisVirtualIP}
+                 tripleo::redis_notification::haproxy_monitor_ip: {get_param: [NetVipMap, ctlplane]}
++                tripleo::keepalived::ovndbs_virtual_ip: {get_param: OVNDbsVirtualIP}
+                 cloud_name_external: {get_param: cloud_name_external}
+                 cloud_name_internal_api: {get_param: cloud_name_internal_api}
+                 cloud_name_storage: {get_param: cloud_name_storage}
+diff --git a/puppet/services/pacemaker/ovn-dbs.yaml b/puppet/services/pacemaker/ovn-dbs.yaml
+new file mode 100644
+index 0000000..944322e
+--- /dev/null
++++ b/puppet/services/pacemaker/ovn-dbs.yaml
+@@ -0,0 +1,45 @@
++heat_template_version: ocata
++
++description: >
++  OVN databases configured with puppet in HA mode
++
++parameters:
++  ServiceNetMap:
++    default: {}
++    description: Mapping of service_name -> network name. Typically set
++                 via parameter_defaults in the resource registry.  This
++                 mapping overrides those in ServiceNetMapDefaults.
++    type: json
++  DefaultPasswords:
++    default: {}
++    type: json
++  EndpointMap:
++    default: {}
++    description: Mapping of service endpoint -> protocol. Typically set
++                 via parameter_defaults in the resource registry.
++    type: json
++  OVNNorthboundServerPort:
++    description: Port of the OVN Northbound DB server
++    type: number
++    default: 6641
++  OVNSouthboundServerPort:
++    description: Port of the OVN Southbound DB server
++    type: number
++    default: 6642
++
++outputs:
++  role_data:
++    description: Role data for the OVN northd service
++    value:
++      service_name: ovn_dbs
++      config_settings:
++          ovn::northbound::port: {get_param: OVNNorthboundServerPort}
++          ovn::southbound::port: {get_param: OVNSouthboundServerPort}
++          tripleo.ovn_dbs.firewall_rules:
++            '121 OVN DB server ports':
++              proto: 'tcp'
++              dport:
++                - {get_param: OVNNorthboundServerPort}
++                - {get_param: OVNSouthboundServerPort}
++      step_config: |
++        include ::tripleo::profile::pacemaker::ovn_northd
+-- 
+2.9.3
+
